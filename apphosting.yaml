@@ -1,0 +1,40 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyDxTzYaZT6cOprQReY0TBQhYezsjZ0rNE4
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: apu-careerhub-11758.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: apu-careerhub-11758
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: apu-careerhub-11758.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "741993827581"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:741993827581:web:de6291ba7bd2c4fe4d8294"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: FIREBASE_PROJECT_ID
+    value: apu-careerhub-11758
+    availability:
+      - BUILD
+      - RUNTIME

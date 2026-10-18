@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="720" viewBox="0 0 1900 720" role="img" aria-labelledby="title desc">
+  <title id="title">Typography Used in APU CareerHub</title>
+  <desc id="desc">A typography specimen displaying the five font families configured for the APU CareerHub interface.</desc>
+
+  <rect width="1900" height="720" fill="#FFFFFF"/>
+  <rect x="50" y="45" width="1800" height="625" fill="#FFFFFF" stroke="#111111" stroke-width="4"/>
+  <rect x="75" y="75" width="1750" height="565" fill="#121212"/>
+
+  <text x="145" y="255"
+        font-family="Inter, Arial, Helvetica, sans-serif"
+        font-size="116" font-weight="500" fill="#FFFFFF">Inter</text>
+
+  <text x="665" y="255"
+        font-family="Avenir Next, Avenir, Arial, sans-serif"
+        font-size="106" font-weight="500" fill="#FFFFFF">Avenir Next</text>
+
+  <text x="1360" y="255"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="104" font-weight="500" fill="#FFFFFF">Segoe UI</text>
+
+  <text x="145" y="510"
+        font-family="SFMono-Regular, Menlo, Monaco, monospace"
+        font-size="85" font-weight="400" fill="#FFFFFF">SFMono-Regular</text>
+
+  <text x="1190" y="510"
+        font-family="Consolas, Menlo, Monaco, monospace"
+        font-size="105" font-weight="400" fill="#FFFFFF">Consolas</text>
+</svg>

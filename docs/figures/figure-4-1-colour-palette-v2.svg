@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1080" viewBox="0 0 1800 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Colour Palette Used in APU CareerHub</title>
+  <desc id="desc">Five rectangular colour swatches arranged as three blocks above two blocks, showing the hexadecimal colours used in APU CareerHub.</desc>
+  <style>
+    .code {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 52px;
+      font-weight: 400;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+  </style>
+
+  <rect width="1800" height="1080" fill="#FFFFFF"/>
+  <rect x="105" y="72" width="1590" height="900" fill="#FFFFFF" stroke="#111111" stroke-width="4"/>
+
+  <!-- Top row -->
+  <rect x="145" y="112" width="505" height="420" fill="#24345C"/>
+  <text class="code" x="397.5" y="322" fill="#FFFFFF">24345C</text>
+
+  <rect x="650" y="112" width="505" height="420" fill="#D91B62"/>
+  <text class="code" x="902.5" y="322" fill="#FFFFFF">D91B62</text>
+
+  <rect x="1155" y="112" width="500" height="420" fill="#FFFFFF"/>
+  <text class="code" x="1405" y="322" fill="#111111">FFFFFF</text>
+
+  <!-- Bottom row -->
+  <rect x="390" y="532" width="510" height="400" fill="#F5F7FB"/>
+  <text class="code" x="645" y="732" fill="#111111">F5F7FB</text>
+
+  <rect x="900" y="532" width="510" height="400" fill="#1D294A"/>
+  <text class="code" x="1155" y="732" fill="#FFFFFF">1D294A</text>
+</svg>

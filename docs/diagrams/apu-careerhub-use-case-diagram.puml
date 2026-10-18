@@ -1,0 +1,301 @@
+@startuml
+title APU CareerHub - Detailed Use Case Diagram
+
+' ================================================================
+' Layout and visual settings
+' ================================================================
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 18
+skinparam linetype ortho
+skinparam nodesep 35
+skinparam ranksep 55
+skinparam dpi 180
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam ArrowColor #526078
+skinparam ArrowThickness 1.2
+
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #18233F
+  FontColor #18233F
+  FontSize 15
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #24345C
+  FontColor #18233F
+  FontSize 13
+}
+
+skinparam rectangle {
+  BorderColor #18233F
+  FontColor #18233F
+  FontSize 16
+}
+
+skinparam package {
+  BorderColor #8793AA
+  FontColor #18233F
+  FontSize 15
+}
+
+' ================================================================
+' Primary actors - no separate public actor is used
+' ================================================================
+actor Student as ST
+actor Employer as EM
+actor Administrator as AD
+
+rectangle "APU CareerHub Employment Portal" as SYSTEM #FFFFFF {
+
+  ' --------------------------------------------------------------
+  ' Shared identity and account services
+  ' --------------------------------------------------------------
+  package "1. Identity and Shared Account Services" as AUTH #FFF4F8 {
+    usecase "Use Shared Account\nServices" as C_SHARED
+    usecase "Register Student\nAccount" as C_REG_ST
+    usecase "Request Employer\nAccount Access" as C_REG_EM
+    usecase "Sign In" as C_LOGIN
+    usecase "Verify Firebase Credentials\nand Create Secure Session" as C_SESSION
+    usecase "Enforce Role-Based\nPortal Access" as C_ROLE
+    usecase "Manage Account Settings\nand Change Password" as C_ACCOUNT
+    usecase "Access Email Help\nand Support" as C_SUPPORT
+    usecase "Sign Out and\nEnd Session" as C_LOGOUT
+
+    C_SHARED ..> C_LOGIN : <<include>>
+    C_LOGIN ..> C_SESSION : <<include>>
+    C_SESSION ..> C_ROLE : <<include>>
+    C_SHARED ..> C_ACCOUNT : <<include>>
+    C_SHARED ..> C_SUPPORT : <<include>>
+    C_SHARED ..> C_LOGOUT : <<include>>
+
+    C_REG_ST -[hidden]right-> C_REG_EM
+    C_REG_EM -[hidden]right-> C_SHARED
+  }
+
+  ' --------------------------------------------------------------
+  ' Complete student journey
+  ' --------------------------------------------------------------
+  package "2. Student Journey" as STUDENT_AREA #EEF6FF {
+    usecase "View Student Dashboard" as S_DASH
+    usecase "View Application Activity,\nRecommendations and Metrics" as S_DASH_DATA
+
+    usecase "Find Campus Jobs" as S_FIND
+    usecase "Search and Filter\nPublished Vacancies" as S_SEARCH
+    usecase "View Vacancy Details" as S_VIEW_JOB
+
+    usecase "Manage Student Profile" as S_PROFILE
+    usecase "Update Academic Details,\nSkills and Availability" as S_PROFILE_DATA
+    usecase "Upload, Change or Remove\nProfile Picture" as S_AVATAR
+
+    usecase "Manage Personal Documents" as S_DOCS
+    usecase "Upload and Download\nProtected Documents" as S_DOC_TRANSFER
+    usecase "Rename or Delete\nUnused Documents" as S_DOC_MAINTAIN
+
+    usecase "Submit Job Application" as S_APPLY
+    usecase "Provide Cover Letter and\nSelect Supporting Document" as S_APPLY_DATA
+    usecase "Validate Vacancy, Deadline,\nOwnership and Duplicate Submission" as S_APPLY_VALIDATE
+    usecase "Create Application, Initial\nHistory and Audit Record" as S_APPLY_STORE
+
+    usecase "Track My Applications" as S_TRACK
+    usecase "View Active and Previous\nApplications" as S_APP_LIST
+    usecase "View Status Timeline and\nEmployer Messages" as S_TIMELINE
+    usecase "View Submitted Document\nand Original Vacancy" as S_SUBMITTED
+
+    S_DASH ..> S_DASH_DATA : <<include>>
+    S_FIND ..> S_SEARCH : <<include>>
+    S_FIND ..> S_VIEW_JOB : <<include>>
+    S_PROFILE ..> S_PROFILE_DATA : <<include>>
+    S_PROFILE ..> S_AVATAR : <<include>>
+    S_DOCS ..> S_DOC_TRANSFER : <<include>>
+    S_DOCS ..> S_DOC_MAINTAIN : <<include>>
+    S_APPLY ..> S_VIEW_JOB : <<include>>
+    S_APPLY ..> S_APPLY_DATA : <<include>>
+    S_APPLY ..> S_APPLY_VALIDATE : <<include>>
+    S_APPLY ..> S_APPLY_STORE : <<include>>
+    S_TRACK ..> S_APP_LIST : <<include>>
+    S_TRACK ..> S_TIMELINE : <<include>>
+    S_TRACK ..> S_SUBMITTED : <<include>>
+
+    S_DASH -[hidden]down-> S_FIND
+    S_FIND -[hidden]down-> S_PROFILE
+    S_PROFILE -[hidden]down-> S_DOCS
+    S_DOCS -[hidden]down-> S_APPLY
+    S_APPLY -[hidden]down-> S_TRACK
+  }
+
+  ' --------------------------------------------------------------
+  ' Complete employer journey
+  ' --------------------------------------------------------------
+  package "3. Employer Journey" as EMPLOYER_AREA #F0FBF7 {
+    usecase "View Employer Dashboard" as E_DASH
+    usecase "View Vacancy, Applicant and\nAwaiting-Review Metrics" as E_DASH_DATA
+
+    usecase "Manage Department Profile" as E_PROFILE
+    usecase "Update Contact Details and\nDepartment Description" as E_PROFILE_DATA
+
+    usecase "Manage Department Vacancies" as E_VACANCIES
+    usecase "Create Vacancy and\nSave Draft" as E_CREATE
+    usecase "Edit Draft or\nRejected Vacancy" as E_EDIT
+    usecase "Submit Vacancy for\nAdministrator Approval" as E_SUBMIT
+    usecase "View Vacancy Details\nand Applicant Count" as E_VIEW_VACANCY
+    usecase "Close Published Vacancy" as E_CLOSE
+
+    usecase "Review Applications for\nOwned Vacancies" as E_REVIEW
+    usecase "Search and Filter\nDepartment Applications" as E_FILTER_APPS
+    usecase "View Applicant Profile,\nCover Letter and Application" as E_VIEW_APPLICANT
+    usecase "Download Authorized\nProtected Document" as E_DOWNLOAD_DOC
+    usecase "Update Application Status" as E_STATUS
+    usecase "Enforce Controlled\nStatus Transitions" as E_TRANSITION
+    usecase "Add Student Message and\nPrivate Review Note" as E_NOTES
+    usecase "Record Status History\nand Audit Log" as E_HISTORY
+
+    E_DASH ..> E_DASH_DATA : <<include>>
+    E_PROFILE ..> E_PROFILE_DATA : <<include>>
+    E_VACANCIES ..> E_CREATE : <<include>>
+    E_VACANCIES ..> E_EDIT : <<include>>
+    E_VACANCIES ..> E_SUBMIT : <<include>>
+    E_VACANCIES ..> E_VIEW_VACANCY : <<include>>
+    E_CLOSE ..> E_VACANCIES : <<extend>>\n[published vacancy]
+    E_REVIEW ..> E_FILTER_APPS : <<include>>
+    E_REVIEW ..> E_VIEW_APPLICANT : <<include>>
+    E_VIEW_APPLICANT ..> E_DOWNLOAD_DOC : <<include>>
+    E_REVIEW ..> E_STATUS : <<include>>
+    E_STATUS ..> E_TRANSITION : <<include>>
+    E_STATUS ..> E_NOTES : <<include>>
+    E_STATUS ..> E_HISTORY : <<include>>
+
+    E_DASH -[hidden]down-> E_PROFILE
+    E_PROFILE -[hidden]down-> E_VACANCIES
+    E_VACANCIES -[hidden]down-> E_REVIEW
+  }
+
+  ' --------------------------------------------------------------
+  ' Complete administrator journey
+  ' --------------------------------------------------------------
+  package "4. Administrator Journey" as ADMIN_AREA #FFF8E8 {
+    usecase "View Administration Dashboard" as A_DASH
+    usecase "Monitor Portal Metrics, Live Data\nand Pending Approvals" as A_DASH_DATA
+
+    usecase "Manage Employer Access" as A_EMPLOYER
+    usecase "Review Pending Employer\nAccount Requests" as A_EMPLOYER_REVIEW
+    usecase "Approve Employer Access" as A_EMPLOYER_APPROVE
+
+    usecase "Manage User Accounts" as A_USERS
+    usecase "View Student, Employer and\nAdministrator Directory" as A_USER_LIST
+    usecase "Activate or Deactivate\nUser Account" as A_ACTIVE
+    usecase "Create Administrator Account\n(Primary Administrator Only)" as A_CREATE_ADMIN
+
+    usecase "Oversee All Vacancies" as A_VACANCIES
+    usecase "View Pending and Existing\nVacancy Records" as A_VIEW_VACANCY
+    usecase "Approve or Reject\nPending Vacancy" as A_APPROVE_VACANCY
+    usecase "Close Published Vacancy" as A_CLOSE_VACANCY
+    usecase "Archive Eligible\nVacancy Record" as A_ARCHIVE_VACANCY
+
+    usecase "Monitor System-Wide\nApplications" as A_APPLICATIONS
+    usecase "Search and Filter by Student,\nVacancy, Department or Status" as A_FILTER_APPLICATIONS
+
+    usecase "Review Audit Logs" as A_AUDIT
+    usecase "Inspect Authentication, User,\nVacancy and Application Events" as A_AUDIT_DATA
+
+    A_DASH ..> A_DASH_DATA : <<include>>
+    A_EMPLOYER ..> A_EMPLOYER_REVIEW : <<include>>
+    A_EMPLOYER ..> A_EMPLOYER_APPROVE : <<include>>
+    A_USERS ..> A_USER_LIST : <<include>>
+    A_USERS ..> A_ACTIVE : <<include>>
+    A_CREATE_ADMIN ..> A_USERS : <<extend>>\n[primary administrator]
+    A_VACANCIES ..> A_VIEW_VACANCY : <<include>>
+    A_VACANCIES ..> A_APPROVE_VACANCY : <<include>>
+    A_CLOSE_VACANCY ..> A_VACANCIES : <<extend>>\n[published vacancy]
+    A_ARCHIVE_VACANCY ..> A_VACANCIES : <<extend>>\n[eligible status]
+    A_APPLICATIONS ..> A_FILTER_APPLICATIONS : <<include>>
+    A_AUDIT ..> A_AUDIT_DATA : <<include>>
+
+    A_DASH -[hidden]down-> A_EMPLOYER
+    A_EMPLOYER -[hidden]down-> A_USERS
+    A_USERS -[hidden]down-> A_VACANCIES
+    A_VACANCIES -[hidden]down-> A_APPLICATIONS
+    A_APPLICATIONS -[hidden]down-> A_AUDIT
+  }
+
+  ' Keep the shared services above the three role journeys.
+  C_SHARED -[hidden]down-> E_DASH
+  S_DASH -[hidden]right-> E_DASH
+  E_DASH -[hidden]right-> A_DASH
+}
+
+' ================================================================
+' Actor-to-system associations
+' ================================================================
+ST -right-> C_REG_ST
+ST -right-> C_SHARED
+ST -right-> S_DASH
+ST -right-> S_FIND
+ST -right-> S_PROFILE
+ST -right-> S_DOCS
+ST -right-> S_APPLY
+ST -right-> S_TRACK
+
+EM -up-> C_REG_EM
+EM -up-> C_SHARED
+EM -up-> E_DASH
+EM -up-> E_PROFILE
+EM -up-> E_VACANCIES
+EM -up-> E_REVIEW
+
+AD -left-> C_SHARED
+AD -left-> A_DASH
+AD -left-> A_EMPLOYER
+AD -left-> A_USERS
+AD -left-> A_VACANCIES
+AD -left-> A_APPLICATIONS
+AD -left-> A_AUDIT
+
+' ================================================================
+' Cross-role workflow dependencies
+' These are deliberately limited to keep the diagram readable.
+' ================================================================
+C_REG_EM ..> A_EMPLOYER_REVIEW : <<creates pending access request>>
+E_SUBMIT ..> A_VIEW_VACANCY : <<creates pending vacancy>>
+S_APPLY_STORE ..> E_REVIEW : <<creates application record>>
+E_HISTORY ..> S_TIMELINE : <<updates student timeline>>
+
+' ================================================================
+' Important implementation constraints
+' ================================================================
+note bottom of C_REG_ST
+  Students receive an active student role
+  after successful registration.
+end note
+
+note bottom of C_REG_EM
+  Employer registration creates a pending request.
+  Portal access begins only after administrator approval.
+end note
+
+note bottom of S_DOC_MAINTAIN
+  A document attached to a submitted application
+  cannot be deleted from the student's records.
+end note
+
+note bottom of E_STATUS
+  Supported sequence:
+  Submitted -> Under review -> Shortlisted
+  -> Interview -> Offered
+  Rejection is allowed only from permitted stages.
+end note
+
+legend bottom
+  |= Relationship |= Meaning |
+  | Solid directed line | Actor initiates the use case |
+  | Dashed <<include>> line | Required supporting behaviour |
+  | Dashed <<extend>> line | Conditional or role-limited behaviour |
+  | Dashed workflow line | One role's action creates or updates another role's work item |
+endlegend
+
+@enduml

@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // APU CareerHub uses authenticated Next.js Route Handlers for document and
+    // profile-picture uploads and downloads. Those handlers verify the user's
+    // role, ownership, application access, file signature, MIME type, and the
+    // applicable size limit before using the Firebase Admin SDK to access Storage.
+    //
+    // Direct browser/client access is intentionally denied so a user cannot
+    // bypass those checks, enumerate files, or delete a file without keeping
+    // its Firestore metadata in sync.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

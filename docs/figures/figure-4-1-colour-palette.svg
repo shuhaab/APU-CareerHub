@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">APU CareerHub Colour Palette</title>
+  <desc id="desc">A structured colour palette showing the brand, surface, and status colours used throughout APU CareerHub.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#18233F" flood-opacity="0.10"/>
+    </filter>
+    <linearGradient id="brandLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#24345C"/>
+      <stop offset="0.58" stop-color="#D91B62"/>
+      <stop offset="1" stop-color="#EC6C78"/>
+    </linearGradient>
+    <style>
+      .ui { font-family: Inter, "Avenir Next", "Segoe UI", Arial, sans-serif; }
+      .section { font-size: 22px; font-weight: 800; letter-spacing: 2.5px; fill: #5B6477; }
+      .name { font-size: 24px; font-weight: 750; fill: #18233F; }
+      .hex { font-size: 21px; font-weight: 700; fill: #677084; letter-spacing: 0.8px; }
+      .use { font-size: 18px; font-weight: 500; fill: #7C8495; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1120" fill="#F5F7FB"/>
+  <rect x="55" y="52" width="1690" height="1016" rx="34" fill="#FFFFFF" filter="url(#shadow)"/>
+
+  <g class="ui">
+    <rect x="55" y="52" width="1690" height="190" rx="34" fill="#1D294A"/>
+    <path d="M55 208H1745V242H55Z" fill="#1D294A"/>
+    <rect x="107" y="94" width="70" height="70" rx="18" fill="#D91B62"/>
+    <path d="M128 123h29M128 137h21" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <text x="205" y="126" font-size="24" font-weight="800" letter-spacing="3.2" fill="#FF91B8">APU CAREERHUB</text>
+    <text x="205" y="183" font-size="48" font-weight="800" fill="#FFFFFF">Colour Palette</text>
+    <text x="1322" y="151" font-size="21" font-weight="600" text-anchor="end" fill="#CAD0DF">Professional · Clear · Accessible</text>
+    <rect x="107" y="218" width="1586" height="7" rx="4" fill="url(#brandLine)"/>
+
+    <text class="section" x="107" y="300">CORE BRAND COLOURS</text>
+
+    <g transform="translate(107 333)">
+      <rect width="298" height="235" rx="22" fill="#FFFFFF" stroke="#E4E8F0"/>
+      <rect width="298" height="118" rx="22" fill="#24345C"/>
+      <path d="M0 96H298V118H0Z" fill="#24345C"/>
+      <text class="name" x="24" y="157">Primary Navy</text>
+      <text class="hex" x="24" y="190">#24345C</text>
+      <text class="use" x="24" y="218">Buttons and key actions</text>
+    </g>
+
+    <g transform="translate(429 333)">
+      <rect width="298" height="235" rx="22" fill="#FFFFFF" stroke="#E4E8F0"/>
+      <rect width="298" height="118" rx="22" fill="#1D294A"/>
+      <path d="M0 96H298V118H0Z" fill="#1D294A"/>
+      <text class="name" x="24" y="157">Sidebar Navy</text>
+      <text class="hex" x="24" y="190">#1D294A</text>
+      <text class="use" x="24" y="218">Navigation and panels</text>
+    </g>
+
+    <g transform="translate(751 333)">
+      <rect width="298" height="235" rx="22" fill="#FFFFFF" stroke="#E4E8F0"/>
+      <rect width="298" height="118" rx="22" fill="#18233F"/>
+      <path d="M0 96H298V118H0Z" fill="#18233F"/>
+      <text class="name" x="24" y="157">Heading Navy</text>
+      <text class="hex" x="24" y="190">#18233F</text>
+      <text class="use" x="24" y="218">Headings and strong text</text>
+    </g>
+
+    <g transform="translate(1073 333)">
+      <rect width="298" height="235" rx="22" fill="#FFFFFF" stroke="#E4E8F0"/>
+      <rect width="298" height="118" rx="22" fill="#D91B62"/>
+      <path d="M0 96H298V118H0Z" fill="#D91B62"/>
+      <text class="name" x="24" y="157">Career Rose</text>
+      <text class="hex" x="24" y="190">#D91B62</text>
+      <text class="use" x="24" y="218">Primary accent and focus</text>
+    </g>
+
+    <g transform="translate(1395 333)">
+      <rect width="298" height="235" rx="22" fill="#FFFFFF" stroke="#E4E8F0"/>
+      <rect width="298" height="118" rx="22" fill="#BB164F"/>
+      <path d="M0 96H298V118H0Z" fill="#BB164F"/>
+      <text class="name" x="24" y="157">Rose Hover</text>
+      <text class="hex" x="24" y="190">#BB164F</text>
+      <text class="use" x="24" y="218">Hover and emphasis</text>
+    </g>
+
+    <text class="section" x="107" y="641">SURFACES AND SUPPORTING COLOURS</text>
+
+    <g transform="translate(107 674)">
+      <rect width="370" height="190" rx="22" fill="#FFFFFF" stroke="#DDE2EB"/>
+      <rect x="20" y="20" width="108" height="150" rx="18" fill="#FFFFFF" stroke="#DDE2EB"/>
+      <text class="name" x="151" y="70">White</text>
+      <text class="hex" x="151" y="105">#FFFFFF</text>
+      <text class="use" x="151" y="139">Cards and forms</text>
+    </g>
+
+    <g transform="translate(500 674)">
+      <rect width="370" height="190" rx="22" fill="#FFFFFF" stroke="#DDE2EB"/>
+      <rect x="20" y="20" width="108" height="150" rx="18" fill="#F5F7FB" stroke="#DDE2EB"/>
+      <text class="name" x="151" y="70">Page Slate</text>
+      <text class="hex" x="151" y="105">#F5F7FB</text>
+      <text class="use" x="151" y="139">Portal backgrounds</text>
+    </g>
+
+    <g transform="translate(893 674)">
+      <rect width="370" height="190" rx="22" fill="#FFFFFF" stroke="#DDE2EB"/>
+      <rect x="20" y="20" width="108" height="150" rx="18" fill="#F7F8FB" stroke="#DDE2EB"/>
+      <text class="name" x="151" y="70">Panel Grey</text>
+      <text class="hex" x="151" y="105">#F7F8FB</text>
+      <text class="use" x="151" y="139">Secondary sections</text>
+    </g>
+
+    <g transform="translate(1286 674)">
+      <rect width="407" height="190" rx="22" fill="#FFFFFF" stroke="#DDE2EB"/>
+      <rect x="20" y="20" width="108" height="150" rx="18" fill="#EEF1F7" stroke="#DDE2EB"/>
+      <text class="name" x="151" y="70">Soft Navy</text>
+      <text class="hex" x="151" y="105">#EEF1F7</text>
+      <text class="use" x="151" y="139">Icons and selected areas</text>
+    </g>
+
+    <text class="section" x="107" y="934">STATUS ACCENTS</text>
+    <g transform="translate(107 966)">
+      <circle cx="18" cy="18" r="18" fill="#059669"/><text x="49" y="25" font-size="20" font-weight="700" fill="#18233F">Success</text>
+      <circle cx="238" cy="18" r="18" fill="#D97706"/><text x="269" y="25" font-size="20" font-weight="700" fill="#18233F">Pending</text>
+      <circle cx="458" cy="18" r="18" fill="#0284C7"/><text x="489" y="25" font-size="20" font-weight="700" fill="#18233F">Submitted</text>
+      <circle cx="710" cy="18" r="18" fill="#7C3AED"/><text x="741" y="25" font-size="20" font-weight="700" fill="#18233F">Interview</text>
+      <circle cx="958" cy="18" r="18" fill="#DC2626"/><text x="989" y="25" font-size="20" font-weight="700" fill="#18233F">Error / Rejected</text>
+    </g>
+
+    <text x="1693" y="1038" text-anchor="end" font-size="17" font-weight="600" fill="#9AA2B2">APU CareerHub interface system</text>
+  </g>
+</svg>

@@ -1,0 +1,122 @@
+@startuml
+title APU CareerHub - Essential Use Case Diagram
+
+left to right direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 18
+skinparam linetype ortho
+skinparam nodesep 42
+skinparam ranksep 58
+skinparam dpi 180
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam ArrowColor #526078
+skinparam ArrowThickness 1.3
+
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #18233F
+  FontColor #18233F
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #24345C
+  FontColor #18233F
+}
+
+actor Student as ST
+actor Employer as EM
+actor Administrator as AD
+
+rectangle "APU CareerHub Employment Portal" as SYSTEM {
+
+  package "Access and Authorization" #FFF4F8 {
+    usecase "Register Student\nAccount" as UC_REGISTER
+    usecase "Request Employer\nAccess" as UC_REQUEST
+    usecase "Authenticate User and\nEnforce Role-Based Access" as UC_AUTH
+  }
+
+  package "Student Recruitment Journey" #EEF6FF {
+    usecase "Browse and Search\nVacancies" as UC_BROWSE
+    usecase "Manage Student\nProfile" as UC_PROFILE
+    usecase "Manage Secure\nDocuments" as UC_DOCUMENTS
+    usecase "Submit Online\nApplication" as UC_APPLY
+    usecase "Track Application\nStatus" as UC_TRACK
+  }
+
+  package "Employer Recruitment Journey" #F0FBF7 {
+    usecase "Create and Manage\nVacancies" as UC_VACANCIES
+    usecase "Review\nApplications" as UC_REVIEW
+    usecase "Update Application\nStatus" as UC_STATUS
+  }
+
+  package "Administrative Governance" #FFF8E8 {
+    usecase "Approve Employer\nAccess" as UC_APPROVE_EMPLOYER
+    usecase "Approve or Reject\nVacancies" as UC_APPROVE_VACANCY
+    usecase "Manage User\nAccess" as UC_USERS
+    usecase "Monitor Recruitment\nRecords" as UC_MONITOR
+  }
+
+  UC_REGISTER -[hidden]right-> UC_AUTH
+  UC_BROWSE -[hidden]down-> UC_PROFILE
+  UC_PROFILE -[hidden]down-> UC_DOCUMENTS
+  UC_DOCUMENTS -[hidden]down-> UC_APPLY
+  UC_APPLY -[hidden]down-> UC_TRACK
+
+  UC_VACANCIES -[hidden]down-> UC_REVIEW
+  UC_REVIEW -[hidden]down-> UC_STATUS
+
+  UC_APPROVE_EMPLOYER -[hidden]down-> UC_APPROVE_VACANCY
+  UC_APPROVE_VACANCY -[hidden]down-> UC_USERS
+  UC_USERS -[hidden]down-> UC_MONITOR
+
+  UC_AUTH -[hidden]down-> UC_VACANCIES
+  UC_BROWSE -[hidden]right-> UC_VACANCIES
+  UC_VACANCIES -[hidden]right-> UC_APPROVE_VACANCY
+}
+
+ST -right-> UC_REGISTER
+ST -right-> UC_AUTH
+ST -right-> UC_BROWSE
+ST -right-> UC_PROFILE
+ST -right-> UC_DOCUMENTS
+ST -right-> UC_APPLY
+ST -right-> UC_TRACK
+
+EM -up-> UC_REQUEST
+EM -up-> UC_AUTH
+EM -up-> UC_VACANCIES
+EM -up-> UC_REVIEW
+EM -up-> UC_STATUS
+
+AD -left-> UC_AUTH
+AD -left-> UC_APPROVE_EMPLOYER
+AD -left-> UC_APPROVE_VACANCY
+AD -left-> UC_USERS
+AD -left-> UC_MONITOR
+
+UC_REQUEST ..> UC_APPROVE_EMPLOYER : <<creates approval request>>
+UC_VACANCIES ..> UC_APPROVE_VACANCY : <<submits for approval>>
+UC_APPLY ..> UC_DOCUMENTS : <<include>>\n[select stored document]
+UC_APPLY ..> UC_REVIEW : <<creates application>>
+UC_STATUS ..> UC_TRACK : <<updates progress>>
+
+note bottom of UC_STATUS
+  Controlled progression:
+  Submitted -> Under review -> Shortlisted
+  -> Interview -> Offered
+  Rejection is available from permitted stages.
+end note
+
+legend bottom
+  |= Relationship |= Meaning |
+  | Solid directed line | Actor initiates the use case |
+  | Dashed include line | Required supporting use case |
+  | Dashed workflow line | One role creates or updates another role's work item |
+endlegend
+
+@enduml

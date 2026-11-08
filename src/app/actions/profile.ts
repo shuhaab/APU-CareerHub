@@ -1,17 +1,22 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/app/actions/applications";
-import { requireRole } from "@/lib/auth/server";
+import { hasVerifiedSecondFactor, recentSignIn, validPassword } from "@/lib/auth/policy";
+import { requireActionRole } from "@/lib/auth/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 
 function text(formData: FormData, key: string, max: number) {
-  return String(formData.get(key) ?? "").trim().slice(0, max);
+  const value = formData.get(key);
+  if (value === null) return "";
+  if (typeof value !== "string" || value.length > max) throw new Error("Invalid profile field.");
+  return value.trim();
 }
 
 export async function updateProfileAction(formData: FormData): Promise<void> {
-  const user = await requireRole(["student", "employer", "admin"]);
+  const user = await requireActionRole(["student", "employer", "admin"]);
   const fullName = text(formData, "fullName", 120);
   if (fullName.length < 2) throw new Error("A valid full name is required.");
 
@@ -34,9 +39,6 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
   }
 
   if (user.role === "employer") {
-    const department = text(formData, "department", 180);
-    if (!department) throw new Error("Department is required.");
-    updates.department = department;
     updates.bio = text(formData, "bio", 1500);
   }
 
@@ -55,7 +57,7 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 }
 
 export async function updateAccountSettingsAction(formData: FormData): Promise<void> {
-  const user = await requireRole(["student", "employer", "admin"]);
+  const user = await requireActionRole(["student", "employer", "admin"]);
   const fullName = text(formData, "fullName", 120);
   if (fullName.length < 2) throw new Error("A valid full name is required.");
 
@@ -79,29 +81,24 @@ export async function updateAccountSettingsAction(formData: FormData): Promise<v
 
 export async function changePasswordAction(formData: FormData): Promise<ActionResult> {
   try {
-    const user = await requireRole(["student", "employer", "admin"], { allowPasswordChangeRequired: true });
-    const currentPassword = String(formData.get("currentPassword") ?? "");
-    const newPassword = String(formData.get("newPassword") ?? "");
-    const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-    if (!currentPassword) return { ok: false, error: "Enter your current password." };
-    if (newPassword.length < 12 || newPassword.length > 128 || !/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
-      return { ok: false, error: "Your new password must be 12–128 characters and include uppercase, lowercase, a number, and a symbol." };
-    }
+    const user = await requireActionRole(["student", "employer", "admin"], { allowPasswordChangeRequired: true });
+    const token = formData.get("reauthToken");
+    const newPassword = formData.get("newPassword");
+    const confirmPassword = formData.get("confirmPassword");
+    if (!validPassword(newPassword)) return { ok: false, error: "Your new password must be 12–128 characters and include uppercase, lowercase, a number, and a symbol." };
     if (newPassword !== confirmPassword) return { ok: false, error: "The new password confirmation does not match." };
-    if (newPassword === currentPassword) return { ok: false, error: "Choose a new password that differs from your current password." };
-
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    if (!apiKey || !user.email) return { ok: false, error: "Firebase password verification is not configured." };
-    const verification = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user.email, password: currentPassword, returnSecureToken: false }),
-      cache: "no-store",
-    });
-    if (!verification.ok) return { ok: false, error: "The current password is incorrect." };
-
-    await getAdminAuth().updateUser(user.uid, { password: newPassword });
+    if (typeof token !== "string" || token.length > 12000) return { ok: false, error: "Sign in again before changing your password." };
+    const auth = getAdminAuth();
+    const identity = await auth.verifyIdToken(token, true);
+    if (identity.uid !== user.uid || !recentSignIn(identity) || identity.email_verified !== true ||
+        (user.role === "admin" && !user.profile.mustChangePassword && !hasVerifiedSecondFactor(identity, (await auth.getUser(user.uid)).multiFactor?.enrolledFactors ?? []))) {
+      return { ok: false, error: "Sign in again before changing your password." };
+    }
+    await auth.updateUser(user.uid, { password: newPassword });
+    await auth.revokeRefreshTokens(user.uid);
+    const jar = await cookies();
+    jar.delete("apu_session");
+    jar.delete("apu_onboarding");
     const db = getAdminDb();
     const batch = db.batch();
     batch.update(db.collection("users").doc(user.uid), {

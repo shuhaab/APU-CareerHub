@@ -1,0 +1,41 @@
+name: CareerHub checks
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          APP_ORIGIN: http://127.0.0.1:3137
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium --only-shell
+      - run: npm exec --yes --package=firebase-tools@15.28.2 -- npm run test:emulators
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          git ls-files -z | xargs -0 -r -n1 sh -c 'case "${1##*/}" in .env.example) ! grep -qEv "^[A-Z][A-Z0-9_]*=$|^$" "$1" ;; .env*) exit 1 ;; esac' _
+      - name: Scan incoming commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.0 git /repo --redact --log-opts="$BASE_SHA..HEAD"

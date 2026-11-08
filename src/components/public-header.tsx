@@ -26,7 +26,7 @@ export async function PublicHeader({ sessionUser }: { sessionUser?: SessionUser 
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-[#d91b62]"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               {item.label}
             </Link>
@@ -35,14 +35,14 @@ export async function PublicHeader({ sessionUser }: { sessionUser?: SessionUser 
         <div className="hidden items-center gap-3 sm:flex">
           {user && dashboardHref ? (
             <>
-              <span className="hidden text-sm text-slate-500 xl:inline">Welcome, <strong className="font-semibold text-slate-700">{user.profile.fullName.split(" ")[0]}</strong></span>
-              <LogoutButton compact className="w-auto rounded-lg px-3 py-2 text-slate-600" />
-              <Button asChild className="bg-[#24345c] text-white shadow-sm hover:bg-[#18233f]"><Link href={dashboardHref}><LayoutDashboard className="size-4" /> Dashboard</Link></Button>
+              <span className="hidden text-sm text-muted-foreground xl:inline">Welcome, <strong className="font-semibold text-foreground">{user.profile.fullName.split(" ")[0]}</strong></span>
+              <LogoutButton compact className="w-auto rounded-lg px-3 py-2 text-muted-foreground" />
+              <Button asChild className="bg-primary text-primary-foreground shadow-sm hover:bg-sidebar"><Link href={dashboardHref}><LayoutDashboard className="size-4" /> Dashboard</Link></Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild className="text-slate-700"><Link href="/login">Sign in</Link></Button>
-              <Button asChild className="bg-[#24345c] text-white shadow-sm hover:bg-[#18233f]"><Link href="/register">Create account</Link></Button>
+              <Button variant="ghost" asChild className="text-foreground"><Link href="/login">Sign in</Link></Button>
+              <Button asChild className="bg-primary text-primary-foreground shadow-sm hover:bg-sidebar"><Link href="/register">Create account</Link></Button>
             </>
           )}
         </div>
@@ -57,14 +57,14 @@ export async function PublicHeader({ sessionUser }: { sessionUser?: SessionUser 
             <nav className="mt-10 flex flex-col gap-1" aria-label="Mobile navigation">
               {navigation.map((item) => (
                 <SheetClose render={<Link href={item.href} />} nativeButton={false} key={item.href}>
-                  <span className="block rounded-xl px-3 py-3 text-base font-medium text-slate-700 hover:bg-slate-100">
+                  <span className="block rounded-xl px-3 py-3 text-base font-medium text-foreground hover:bg-muted">
                     {item.label}
                   </span>
                 </SheetClose>
               ))}
             </nav>
             <div className="mt-8 grid gap-3">
-              {user && dashboardHref ? <><Button asChild className="bg-[#24345c] text-white"><Link href={dashboardHref}><LayoutDashboard className="size-4" /> Go to dashboard</Link></Button><LogoutButton compact className="justify-center rounded-lg border border-slate-200 py-2.5" /></> : <><Button variant="outline" asChild><Link href="/login">Sign in</Link></Button><Button asChild className="bg-[#24345c] text-white"><Link href="/register">Create account</Link></Button></>}
+              {user && dashboardHref ? <><Button asChild className="bg-primary text-primary-foreground"><Link href={dashboardHref}><LayoutDashboard className="size-4" /> Go to dashboard</Link></Button><LogoutButton compact className="justify-center rounded-lg border border-border py-2.5" /></> : <><Button variant="outline" asChild><Link href="/login">Sign in</Link></Button><Button asChild className="bg-primary text-primary-foreground"><Link href="/register">Create account</Link></Button></>}
             </div>
           </SheetContent>
         </Sheet>

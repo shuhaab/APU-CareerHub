@@ -1,7 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { demoProject, isLoopbackEmulatorHost } from "./emulator";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -24,13 +23,12 @@ function requireFirebaseApp(): FirebaseApp {
 }
 
 export function getFirebaseAuth(): Auth {
-  return getAuth(requireFirebaseApp());
-}
-
-export function getFirebaseDb(): Firestore {
-  return getFirestore(requireFirebaseApp());
-}
-
-export function getFirebaseStorage(): FirebaseStorage {
-  return getStorage(requireFirebaseApp());
+  const emulator = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1";
+  const host = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
+  if (emulator && (firebaseConfig.projectId !== demoProject || firebaseConfig.apiKey !== "demo-key" || !isLoopbackEmulatorHost(host))) {
+    throw new Error("Unsafe Firebase Auth emulator configuration.");
+  }
+  const auth = getAuth(requireFirebaseApp());
+  if (emulator && !auth.emulatorConfig) connectAuthEmulator(auth, `http://${host}`);
+  return auth;
 }

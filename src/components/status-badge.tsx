@@ -9,16 +9,16 @@ const applicationStyles: Record<ApplicationStatus, string> = {
   interview: "border-indigo-200 bg-indigo-50 text-indigo-700",
   offered: "border-emerald-200 bg-emerald-50 text-emerald-700",
   rejected: "border-rose-200 bg-rose-50 text-rose-700",
-  withdrawn: "border-slate-200 bg-slate-50 text-slate-600",
+  withdrawn: "border-border bg-muted text-muted-foreground",
 };
 
 const jobStyles: Record<JobStatus, string> = {
-  draft: "border-slate-200 bg-slate-50 text-slate-600",
+  draft: "border-border bg-muted text-muted-foreground",
   pending_approval: "border-amber-200 bg-amber-50 text-amber-700",
   published: "border-emerald-200 bg-emerald-50 text-emerald-700",
   rejected: "border-rose-200 bg-rose-50 text-rose-700",
   closed: "border-rose-200 bg-rose-50 text-rose-700",
-  archived: "border-slate-200 bg-slate-100 text-slate-600",
+  archived: "border-border bg-muted text-muted-foreground",
 };
 
 const labels: Record<ApplicationStatus | JobStatus, string> = {

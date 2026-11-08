@@ -31,14 +31,14 @@ export function ApproveEmployerButton({ employerId }: { employerId: string }) {
   }
 
   return (
-    <Button type="button" size="sm" onClick={approveEmployer} disabled={busy} className="bg-[#24345c] text-white">
+    <Button type="button" size="sm" onClick={approveEmployer} disabled={busy} className="bg-primary text-primary-foreground">
       {busy ? <LoaderCircle className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
       {busy ? "Approving…" : "Approve employer"}
     </Button>
   );
 }
 
-export function SetUserActiveButton({ userId, active }: { userId: string; active: boolean }) {
+export function SetUserActiveButton({ userId, active, retry }: { userId: string; active: boolean; retry: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -51,6 +51,7 @@ export function SetUserActiveButton({ userId, active }: { userId: string; active
       const result = await setUserActiveAction(formData);
       if (!result.ok) {
         toast.error(result.error ?? "The account status could not be updated.");
+        router.refresh();
         return;
       }
       toast.success(active ? "Account activated successfully." : "Account deactivated successfully.");
@@ -65,7 +66,7 @@ export function SetUserActiveButton({ userId, active }: { userId: string; active
   return (
     <Button type="button" size="sm" variant="outline" onClick={updateAccountStatus} disabled={busy}>
       {busy ? <LoaderCircle className="size-4 animate-spin" /> : active ? <ShieldCheck className="size-4" /> : <ShieldOff className="size-4" />}
-      {busy ? "Updating…" : active ? "Activate" : "Deactivate"}
+      {busy ? "Updating…" : retry ? "Retry account change" : active ? "Activate" : "Deactivate"}
     </Button>
   );
 }

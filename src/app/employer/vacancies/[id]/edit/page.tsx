@@ -15,7 +15,7 @@ export default async function EditVacancyPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-7">
-      <Button variant="ghost" asChild className="-ml-3 text-slate-500"><Link href={`/employer/vacancies/${job.id}`}><ArrowLeft className="size-4" /> Back to vacancy</Link></Button>
+      <Button variant="ghost" asChild className="-ml-3 text-muted-foreground"><Link href={`/employer/vacancies/${job.id}`}><ArrowLeft className="size-4" /> Back to vacancy</Link></Button>
       <DashboardHeading title="Edit vacancy" description="Update this draft, then keep it private or submit it for administrator approval." />
       <VacancyForm vacancy={job} />
     </div>

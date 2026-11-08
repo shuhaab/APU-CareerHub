@@ -21,7 +21,7 @@ function UsersTable({ users, currentAdminId, canManageAdmins, view = "all" }: {
       ? users.filter((user) => user.role === "admin")
       : users;
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
       <Table>
         <TableHeader><TableRow><TableHead>User</TableHead><TableHead>Role</TableHead><TableHead>Identifier</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
         <TableBody>
@@ -30,22 +30,22 @@ function UsersTable({ users, currentAdminId, canManageAdmins, view = "all" }: {
             const awaitingApproval = user.requestedRole === "employer" && !user.approved;
             return (
               <TableRow key={user.id}>
-                <TableCell><div className="flex items-center gap-3"><Avatar className="size-9">{user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.fullName}'s profile picture`} />}<AvatarFallback className="bg-[#eef1f7] text-xs font-bold text-[#24345c]">{initials}</AvatarFallback></Avatar><div><p className="font-semibold text-[#18233f]">{user.fullName}</p><p className="text-xs text-slate-400">{user.email}</p></div></div></TableCell>
-                <TableCell><div className="flex flex-wrap gap-1.5"><Badge variant="secondary" className="capitalize">{user.role}</Badge>{user.canManageAdmins && <Badge className="bg-[#24345c] text-white">Primary admin</Badge>}</div></TableCell>
-                <TableCell className="text-slate-500">{user.studentId ?? user.department ?? "System account"}</TableCell>
-                <TableCell><Badge variant="outline" className={awaitingApproval ? "border-amber-200 bg-amber-50 text-amber-700" : user.accountActive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}>{awaitingApproval ? "Pending approval" : user.accountActive ? "Active" : "Deactivated"}</Badge></TableCell>
+                <TableCell><div className="flex items-center gap-3"><Avatar className="size-9">{user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.fullName}'s profile picture`} />}<AvatarFallback className="bg-muted text-xs font-bold text-foreground">{initials}</AvatarFallback></Avatar><div><p className="font-semibold text-foreground">{user.fullName}</p><p className="text-xs text-muted-foreground">{user.email}</p></div></div></TableCell>
+                <TableCell><div className="flex flex-wrap gap-1.5"><Badge variant="secondary" className="capitalize">{user.role}</Badge>{user.canManageAdmins && <Badge className="bg-primary text-primary-foreground">Primary admin</Badge>}</div></TableCell>
+                <TableCell className="text-muted-foreground">{user.studentId ?? user.department ?? "System account"}</TableCell>
+                <TableCell><Badge variant="outline" className={awaitingApproval ? "border-amber-200 bg-amber-50 text-amber-700" : user.accountActive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}>{user.accountStatusRequested !== undefined ? "Account change pending" : awaitingApproval ? "Pending approval" : user.accountActive ? "Active" : "Deactivated"}</Badge></TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-2">
-                    {awaitingApproval && <ApproveEmployerButton employerId={user.id} />}
-                    {!awaitingApproval && user.id !== currentAdminId && (user.role !== "admin" || canManageAdmins) && <SetUserActiveButton userId={user.id} active={!user.accountActive} />}
-                    {!awaitingApproval && user.id === currentAdminId && <span className="text-xs font-medium text-slate-400">Current account</span>}
-                    {!awaitingApproval && user.role === "admin" && user.id !== currentAdminId && !canManageAdmins && <span className="text-xs font-medium text-slate-400">Primary admin only</span>}
+                    {awaitingApproval && user.accountActive && <ApproveEmployerButton employerId={user.id} />}
+                    {user.id !== currentAdminId && (user.role !== "admin" || canManageAdmins) && <SetUserActiveButton userId={user.id} active={user.accountStatusRequested ?? !user.accountActive} retry={user.accountStatusRequested !== undefined} />}
+                    {!awaitingApproval && user.id === currentAdminId && <span className="text-xs font-medium text-muted-foreground">Current account</span>}
+                    {!awaitingApproval && user.role === "admin" && user.id !== currentAdminId && !canManageAdmins && <span className="text-xs font-medium text-muted-foreground">Primary admin only</span>}
                   </div>
                 </TableCell>
               </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={5} className="py-10 text-center text-slate-500">No matching user accounts.</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No matching user accounts.</TableCell></TableRow>}
         </TableBody>
       </Table>
     </div>
@@ -53,7 +53,8 @@ function UsersTable({ users, currentAdminId, canManageAdmins, view = "all" }: {
 }
 
 export default async function AdminUsersPage() {
-  const [admin, users] = await Promise.all([enforcePageRole("admin"), getAllUsers()]);
+  const admin = await enforcePageRole("admin");
+  const users = await getAllUsers();
   const canManageAdmins = admin.profile.canManageAdmins === true;
   const pendingCount = users.filter((user) => user.requestedRole === "employer" && !user.approved).length;
   const administratorCount = users.filter((user) => user.role === "admin").length;

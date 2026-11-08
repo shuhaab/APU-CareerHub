@@ -88,25 +88,25 @@ export function ProfilePictureUploader({ avatarUrl, fullName, initials }: {
       <div className="relative mx-auto w-fit">
         <Avatar className="size-24 ring-4 ring-slate-100">
           {picture && <AvatarImage src={picture} alt={`${fullName}'s profile picture`} />}
-          <AvatarFallback className="bg-[#eef1f7] text-2xl font-bold text-[#24345c]">{initials}</AvatarFallback>
+          <AvatarFallback className="bg-muted text-2xl font-bold text-foreground">{initials}</AvatarFallback>
         </Avatar>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy !== null}
-          className="absolute -bottom-1 -right-1 grid size-11 place-items-center rounded-full border-2 border-white bg-[#24345c] text-white shadow-md transition hover:bg-[#18233f] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#d91b62]/30 disabled:opacity-60 sm:size-9"
+          className="absolute -bottom-1 -right-1 grid size-11 place-items-center rounded-full border-2 border-white bg-primary text-primary-foreground shadow-md transition hover:bg-sidebar focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/30 disabled:opacity-60 sm:size-9"
           aria-label={avatarUrl ? "Choose a new profile picture" : "Choose a profile picture"}
         >
           <Camera className="size-4" />
         </button>
       </div>
 
-      <p className="mt-4 text-sm font-semibold text-[#18233f]">Profile picture</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">Optional · JPG, PNG, or WebP · Up to 3 MB</p>
+      <p className="mt-4 text-sm font-semibold text-foreground">Profile picture</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">Optional · JPG, PNG, or WebP · Up to 3 MB</p>
 
       {selected ? (
         <div className="mt-4 grid gap-2">
-          <Button type="button" onClick={uploadPicture} disabled={busy !== null} className="bg-[#24345c] text-white hover:bg-[#18233f]">
+          <Button type="button" onClick={uploadPicture} disabled={busy !== null} className="bg-primary text-primary-foreground hover:bg-sidebar">
             {busy === "upload" ? <LoaderCircle className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
             {busy === "upload" ? "Uploading…" : "Upload picture"}
           </Button>

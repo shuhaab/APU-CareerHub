@@ -4,7 +4,7 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyDxTzYaZT6cOprQReY0TBQhYezsjZ0rNE4
+    secret: careerhub-firebase-web-api-key
     availability:
       - BUILD
       - RUNTIME
@@ -37,4 +37,13 @@ env:
     value: apu-careerhub-11758
     availability:
       - BUILD
+      - RUNTIME
+  - variable: APP_ORIGIN
+    secret: careerhub-app-origin
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: TRUSTED_CLIENT_IP_HEADER
+    secret: careerhub-trusted-client-ip-header
+    availability:
       - RUNTIME

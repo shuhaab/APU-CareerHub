@@ -1,8 +1,10 @@
+import { enforcePageRole } from "@/lib/auth/server";
 import { AdminApplicationsExplorer } from "@/components/admin-applications-explorer";
 import { DashboardHeading } from "@/components/app-shell";
 import { getAllApplications } from "@/lib/data/firestore";
 
 export default async function AdminApplicationsPage() {
+  await enforcePageRole("admin");
   const applications = await getAllApplications();
   return (
     <div className="space-y-7">

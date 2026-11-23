@@ -14,6 +14,8 @@ npm exec --yes --package=firebase-tools@15.28.2 -- npm run test:emulators
 
 The browser suite uses a disposable `demo-careerhub` project and synthetic accounts and files. Auth, Firestore, and Storage must all use loopback. The suite launches Next.js on port 3137 and terminates it at the end. Never run the repository's existing seed or deploy scripts as part of the test.
 
+For manual testing with the local app and emulators already running, use Node 22 to run `node scripts/seed-local-accounts.mjs` from this checkout. It creates verified `student@example.test`, approved `employer@example.test`, and `admin@example.test` accounts, all with password `CareerHub-Test!123`. It rejects real project IDs, credentials and nonloopback hosts. The administrator uses a fake SMS factor supported by the Auth emulator; enter the code printed in the emulator Terminal when signing in. Production continues to use TOTP. Emulator accounts disappear when the emulators stop; run the script again after a fresh start.
+
 Before staging:
 
 - Confirm hosting, release branch, staging and production backend/project IDs, and university policy for eligibility, department approval, records, admin recovery and temporary credentials.
@@ -27,3 +29,5 @@ For the exact staging commit, record the SHA, app backend, Firebase project and 
 Cut over server-only rules once the app without listeners is confirmed. Repeat allowed and denied smoke checks. Exercise rollback by restoring a compatible secure app build on staging while keeping the restrictive rules and records. Record the resulting SHA and smoke results. Promote the staged SHA only after explicit production approval. Verify public jobs, login, private access and error rates on the live target and log the release and rollback SHA.
 
 File format checks are not malware scanning. Treat reviewer downloads as untrusted and confirm the university's scan or quarantine requirements before release.
+
+Details of the live deployment target and its outstanding configuration are kept in private project notes, not in this public repository.

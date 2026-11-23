@@ -235,6 +235,18 @@ try {
   await login.waitForURL("**/student");
   await login.getByRole("button", { name: "Refresh dashboard" }).click();
   await login.getByRole("button", { name: "Refresh dashboard" }).waitFor();
+  const adminLoginContext = await context();
+  const adminLogin = await adminLoginContext.newPage();
+  await adminLogin.goto(origin + "/login");
+  await adminLogin.getByLabel("Email address").fill("admin@example.test");
+  await adminLogin.getByLabel("Password", { exact: true }).fill(password);
+  const smsChallenge = adminLogin.waitForResponse((response) => response.url().includes("/accounts/mfaSignIn:start"));
+  await adminLogin.getByRole("button", { name: "Sign in securely" }).click();
+  const { phoneResponseInfo } = await (await smsChallenge).json();
+  await adminLogin.getByLabel("Local SMS code").fill((await sms(phoneResponseInfo.sessionInfo)).code);
+  await adminLogin.getByRole("button", { name: "Verify and sign in" }).click();
+  await adminLogin.waitForURL("**/admin");
+  await adminLoginContext.close();
   const admin = await context("admin");
   const employerHome = await employer.newPage();
   const adminHome = await admin.newPage();

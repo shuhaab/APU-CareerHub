@@ -7,6 +7,8 @@ import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   getMultiFactorResolver,
+  PhoneAuthProvider,
+  PhoneMultiFactorGenerator,
   sendEmailVerification,
   TotpMultiFactorGenerator,
   type MultiFactorError,
@@ -31,6 +33,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<"student" | "employer">("student");
   const [resolver, setResolver] = useState<MultiFactorResolver>();
+  const [phoneVerificationId, setPhoneVerificationId] = useState<string>();
   const [verification, setVerification] = useState<User>();
   const [errorMessage, setErrorMessage] = useState("");
   const configured = isFirebaseClientConfigured;
@@ -73,9 +76,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       await setPersistence(auth, browserLocalPersistence);
       if (resolver) {
         const hint = resolver.hints.find((factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID);
-        if (!hint) throw new Error("This account needs operator help to recover its authenticator.");
-        const { user } = await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(hint.uid, String(form.get("otp"))));
+        if (!hint && !phoneVerificationId) throw new Error("This account needs operator help to recover its authenticator.");
+        const code = String(form.get("otp"));
+        const assertion = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1" && phoneVerificationId
+          ? PhoneMultiFactorGenerator.assertion(PhoneAuthProvider.credential(phoneVerificationId, code))
+          : TotpMultiFactorGenerator.assertionForSignIn(hint!.uid, code);
+        const { user } = await resolver.resolveSignIn(assertion);
         setResolver(undefined);
+        setPhoneVerificationId(undefined);
         await exchangeSession(user);
       } else if (mode === "register") {
         if (!validPassword(password)) throw new Error("Use 12–128 characters with uppercase, lowercase, a number, and a symbol.");
@@ -109,7 +117,16 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       }
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === "auth/multi-factor-auth-required") {
-        setResolver(getMultiFactorResolver(getFirebaseAuth(), error as MultiFactorError));
+        try {
+          const nextResolver = getMultiFactorResolver(getFirebaseAuth(), error as MultiFactorError);
+          const phone = nextResolver.hints.find((factor) => factor.factorId === PhoneMultiFactorGenerator.FACTOR_ID);
+          if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1" && phone) {
+            // The local Auth emulator supports SMS MFA instead of TOTP; it sends no real SMS.
+            const verifier = { type: "recaptcha", verify: async () => "emulator", _reset() {} };
+            setPhoneVerificationId(await new PhoneAuthProvider(getFirebaseAuth()).verifyPhoneNumber({ multiFactorHint: phone, session: nextResolver.session }, verifier));
+          }
+          setResolver(nextResolver);
+        } catch (mfaError) { setErrorMessage(readableAuthError(mfaError)); }
       } else setErrorMessage(readableAuthError(error));
     } finally {
       setLoading(false);
@@ -118,11 +135,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   if (resolver) return <form className="grid gap-4" onSubmit={handleSubmit}>
     <h1 className="text-2xl font-semibold">Verify your sign-in</h1>
-    <Label htmlFor="login-code">Authenticator code</Label>
+    <Label htmlFor="login-code">{phoneVerificationId ? "Local SMS code" : "Authenticator code"}</Label>
+    {phoneVerificationId && <p className="text-sm">Use the SMS code printed in the Terminal running your Firebase emulators.</p>}
     <Input id="login-code" name="otp" pattern="[0-9]{6}" inputMode="numeric" autoComplete="one-time-code" required />
     {errorMessage && <p role="alert" className="text-destructive">{errorMessage}</p>}
-    <Button disabled={loading}>{loading ? "Verifying…" : "Verify and sign in"}</Button>
-    <Button type="button" variant="outline" onClick={() => { setResolver(undefined); setErrorMessage(""); }}>Back to sign-in</Button>
+    <Button type="submit" disabled={loading}>{loading ? "Verifying…" : "Verify and sign in"}</Button>
+    <Button type="button" variant="outline" onClick={() => { setResolver(undefined); setPhoneVerificationId(undefined); setErrorMessage(""); }}>Back to sign-in</Button>
   </form>;
 
   if (verification) return <div className="grid gap-4">

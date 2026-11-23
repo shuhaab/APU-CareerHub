@@ -44,7 +44,7 @@ export function AdminMfaEnrollment() {
       <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); void enroll(String(new FormData(event.currentTarget).get("code"))); }}>
         <label htmlFor="setup-code">Authenticator code</label>
         <Input id="setup-code" name="code" pattern="[0-9]{6}" inputMode="numeric" autoComplete="one-time-code" required />
-        <Button disabled={pending}>{pending ? "Verifying…" : "Verify and sign in again"}</Button>
+        <Button type="submit" disabled={pending}>{pending ? "Verifying…" : "Verify and sign in again"}</Button>
       </form>
     </> : <Button disabled={pending} onClick={() => void enroll()}>{pending ? "Starting…" : "Generate setup key"}</Button>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

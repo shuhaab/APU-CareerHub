@@ -36,11 +36,13 @@ export interface UserProfile {
   canManageAdmins?: boolean;
   mustChangePassword?: boolean;
   accountActive: boolean;
+  accountStatusRequested?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface Job {
+  rejectionReason?: string;
   id: string;
   title: string;
   department: string;
@@ -83,7 +85,10 @@ export interface VacancyEditorData {
   status: JobStatus;
 }
 
+export type PublicJob = Omit<Job, "employerId" | "employerName" | "applicants" | "rejectionReason">;
+
 export interface Application {
+  version: string;
   id: string;
   jobId: string;
   jobTitle: string;
@@ -103,13 +108,13 @@ export interface Application {
 }
 
 export interface StoredDocument {
+  pendingDeletion?: boolean;
   id: string;
   ownerId: string;
   applicationId: string;
   originalName: string;
   contentType: string;
   size: number;
-  storagePath: string;
   createdAt: string;
 }
 

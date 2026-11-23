@@ -1,3 +1,4 @@
+import { enforcePageRole } from "@/lib/auth/server";
 import { Activity, BriefcaseBusiness, FileCheck2, LogIn, Mail, ShieldCheck, UserCheck } from "lucide-react";
 import { DashboardHeading } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -15,17 +16,18 @@ function presentation(action: string) {
 }
 
 export default async function AuditLogsPage() {
+  await enforcePageRole("admin");
   const logs = await getAuditLogs();
   return (
     <div className="space-y-7">
       <DashboardHeading title="Audit logs" description="Review important security, access, vacancy, and application actions recorded by the portal." />
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-6">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-6">
         <div className="grid gap-1">
           {logs.map((log) => {
             const item = presentation(log.action);
-            return <div key={log.id} className="flex gap-4 border-b border-slate-100 py-5 last:border-0"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eef1f7] text-[#24345c]"><item.icon className="size-5" /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold capitalize text-[#18233f]">{item.label}</p><Badge variant="secondary">{item.type}</Badge></div><p className="mt-1 text-sm text-slate-500"><strong className="font-medium">{log.actorName}</strong> · {log.entityType} {log.entityId}</p><time className="mt-2 block text-xs text-slate-400">{log.createdAt}</time></div></div>;
+            return <div key={log.id} className="flex gap-4 border-b border-slate-100 py-5 last:border-0"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground"><item.icon className="size-5" /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold capitalize text-foreground">{item.label}</p><Badge variant="secondary">{item.type}</Badge></div><p className="mt-1 text-sm text-muted-foreground"><strong className="font-medium">{log.actorName}</strong> · {log.entityType} {log.entityId}</p><time className="mt-2 block text-xs text-muted-foreground">{log.createdAt}</time></div></div>;
           })}
-          {logs.length === 0 && <p className="py-12 text-center text-sm text-slate-500">No audited activity has been recorded yet.</p>}
+          {logs.length === 0 && <p className="py-12 text-center text-sm text-muted-foreground">No audited activity has been recorded yet.</p>}
         </div>
       </section>
     </div>

@@ -16,27 +16,27 @@ export function EmailSupportPage({ role }: { role: UserRole }) {
       <DashboardHeading title="Help & support" description={descriptions[role]} />
 
       <section className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-8">
-          <span className="grid size-12 place-items-center rounded-2xl bg-rose-50 text-[#d91b62]"><Mail className="size-6" /></span>
-          <h2 className="mt-5 text-xl font-bold text-[#18233f]">Contact email support</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-8">
+          <span className="grid size-12 place-items-center rounded-2xl bg-rose-50 text-primary"><Mail className="size-6" /></span>
+          <h2 className="mt-5 text-xl font-bold text-foreground">Contact email support</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
             If you need assistance, send an email describing what you were trying to do, what happened, and any error message you received.
           </p>
 
-          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Support email</p>
-            <a href={GMAIL_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 break-all font-semibold text-[#d91b62] hover:underline">
+          <div className="mt-6 rounded-xl border border-border bg-muted p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Support email</p>
+            <a href={GMAIL_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 break-all font-semibold text-primary hover:underline">
               {SUPPORT_EMAIL}<ExternalLink className="size-4 shrink-0" />
             </a>
           </div>
 
-          <Button asChild className="mt-6 h-10 bg-[#24345c] px-4 text-white hover:bg-[#18233f]">
+          <Button asChild className="mt-6 h-10 bg-primary px-4 text-white hover:bg-sidebar">
             <a href={GMAIL_SUPPORT_URL} target="_blank" rel="noopener noreferrer"><Mail className="size-4" /> Open Gmail</a>
           </Button>
         </div>
 
-        <aside className="h-fit rounded-2xl bg-[#1d294a] p-6 text-white shadow-[0_12px_36px_rgba(29,41,74,0.16)]">
-          <MessageSquareText className="size-6 text-[#ff6da4]" />
+        <aside className="h-fit rounded-2xl bg-sidebar p-6 text-white shadow-[0_12px_36px_rgba(29,41,74,0.16)]">
+          <MessageSquareText className="size-6 text-on-dark" />
           <h2 className="mt-4 font-bold">What to include</h2>
           <ul className="mt-4 grid gap-3 text-sm leading-6 text-white/68">
             <li>• Your registered account email and role</li>

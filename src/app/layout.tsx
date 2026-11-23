@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { appOrigin } from "@/lib/http/input";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/fraunces";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const metadataBase = new URL(`${protocol}://${host}`);
+  const origin = appOrigin();
+  const metadataBase = origin ? new URL(origin) : undefined;
   const title = "APU CareerHub | On-Campus Employment";
   const description = "Discover, apply for, and manage on-campus employment opportunities at Asia Pacific University.";
 
@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="min-h-screen">
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster richColors position="top-right" />

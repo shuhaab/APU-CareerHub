@@ -12,11 +12,12 @@ export function AdminVacancyReviewActions({ jobId, title }: { jobId: string; tit
   const router = useRouter();
   const [decision, setDecision] = useState<"approve" | "reject" | null>(null);
 
-  async function reviewVacancy(nextDecision: "approve" | "reject") {
+  async function reviewVacancy(nextDecision: "approve" | "reject", reason?: string) {
     setDecision(nextDecision);
     try {
       const formData = new FormData();
       formData.set("jobId", jobId);
+      if (reason) formData.set("reason", reason);
       const result = nextDecision === "approve"
         ? await approveVacancyAction(formData)
         : await rejectVacancyAction(formData);
@@ -41,7 +42,10 @@ export function AdminVacancyReviewActions({ jobId, title }: { jobId: string; tit
       <Button type="button" size="icon" variant="outline" className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" aria-label={`Approve ${title}`} title="Approve and publish vacancy" disabled={decision !== null} onClick={() => reviewVacancy("approve")}>
         {decision === "approve" ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" />}
       </Button>
-      <Button type="button" size="icon" variant="outline" className="text-rose-700 hover:bg-rose-50 hover:text-rose-800" aria-label={`Reject ${title}`} title="Reject vacancy" disabled={decision !== null} onClick={() => reviewVacancy("reject")}>
+      <Button type="button" size="icon" variant="outline" className="text-rose-700 hover:bg-rose-50 hover:text-rose-800" aria-label={`Reject ${title}`} title="Reject vacancy" disabled={decision !== null} onClick={() => {
+        const reason = window.prompt("Why is this vacancy being returned for correction?");
+        if (reason?.trim()) void reviewVacancy("reject", reason);
+      }}>
         {decision === "reject" ? <LoaderCircle className="size-4 animate-spin" /> : <X className="size-4" />}
       </Button>
     </div>

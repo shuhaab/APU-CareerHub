@@ -4,17 +4,21 @@ import { FieldValue, Timestamp, type DocumentData } from "firebase-admin/firesto
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { requireRole } from "@/lib/auth/server";
+import { validId } from "@/lib/http/input";
+import { deadlineMillis, vacancyDeadline } from "@/lib/vacancies/deadline";
+import { requireActionRole } from "@/lib/auth/server";
 import type { ActionResult } from "@/app/actions/applications";
 
 function text(formData: FormData, name: string) {
-  return String(formData.get(name) ?? "").trim();
+  const value = formData.get(name);
+  if (value === null) return "";
+  if (typeof value !== "string" || value.length > 10000) throw new Error("Invalid vacancy field.");
+  return value.trim();
 }
 
 function vacancyFields(formData: FormData) {
   const deadlineValue = text(formData, "deadline");
-  const parsedDeadline = deadlineValue ? new Date(`${deadlineValue}T23:59:59+08:00`) : null;
-  const deadline = parsedDeadline && !Number.isNaN(parsedDeadline.getTime()) ? parsedDeadline : null;
+  const deadline = vacancyDeadline(deadlineValue);
   const openingsValue = Number(text(formData, "openings") || "1");
   return {
     title: text(formData, "title"),
@@ -33,7 +37,13 @@ function vacancyFields(formData: FormData) {
   };
 }
 
-function vacancyValidationError(fields: ReturnType<typeof vacancyFields>): string | null {
+function vacancyValidationError(fields: ReturnType<typeof vacancyFields>, draft = false): string | null {
+  if (fields.title.length > 160 || fields.location.length > 180 || fields.compensation.length > 120 || fields.hoursPerWeek.length > 120
+      || fields.responsibilities.length > 50 || fields.requirements.length > 50 || fields.skills.length > 30) return "One or more vacancy fields are too long.";
+  if (fields.category && !["Student Services", "Technology", "Marketing", "Research", "Events", "Education", "Other"].includes(fields.category)) return "Select a valid vacancy category.";
+  if (fields.employmentType && !["Part-time", "Temporary", "Project-based"].includes(fields.employmentType)) return "Select a valid employment type.";
+  if (fields.workMode && !["On campus", "Hybrid"].includes(fields.workMode)) return "Select a valid work arrangement.";
+  if (draft) return fields.title.length < 3 ? "Enter a title of at least 3 characters before saving the draft." : null;
   if (fields.title.length < 5) return "Enter a job title containing at least 5 characters.";
   if (!fields.category) return "Select a vacancy category.";
   if (!fields.employmentType) return "Select an employment type.";
@@ -42,7 +52,7 @@ function vacancyValidationError(fields: ReturnType<typeof vacancyFields>): strin
   if (!fields.compensation) return "Enter the vacancy compensation.";
   if (!fields.hoursPerWeek) return "Enter the expected weekly hours.";
   if (!fields.applicationDeadline) return "Select a valid application deadline.";
-  if (fields.applicationDeadline.toMillis() <= Date.now()) return "Choose an application deadline in the future.";
+  if (!(deadlineMillis(fields.applicationDeadline) > Date.now())) return "Choose an application deadline in the future.";
   if (fields.openings < 1 || fields.openings > 100) return "Enter between 1 and 100 openings.";
   if (fields.description.length < 80) return `Add ${80 - fields.description.length} more characters to the opportunity description.`;
   if (!fields.responsibilities.length) return "Enter at least one responsibility.";
@@ -77,11 +87,11 @@ function revalidateVacancies() {
 
 export async function createVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const user = await requireRole(["employer"]);
+    const user = await requireActionRole(["employer"]);
     const fields = vacancyFields(formData);
-    const intent = formData.get("intent") === "submit" ? "submit" : "draft";
-    if (intent === "draft" && fields.title.length < 3) return { ok: false, error: "Enter a title of at least 3 characters before saving the draft." };
-    const validationError = intent === "submit" ? vacancyValidationError(fields) : null;
+    const intent = formData.get("intent");
+    if (intent !== "submit" && intent !== "draft") return { ok: false, error: "Select a vacancy action." };
+    const validationError = vacancyValidationError(fields, intent === "draft");
     if (validationError) return { ok: false, error: validationError };
     const db = getAdminDb();
     const profile = (await db.collection("users").doc(user.uid).get()).data();
@@ -106,30 +116,33 @@ export async function createVacancyAction(formData: FormData): Promise<ActionRes
 
 export async function updateVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const user = await requireRole(["employer"]);
+    const user = await requireActionRole(["employer"]);
     const jobId = text(formData, "jobId");
     const fields = vacancyFields(formData);
-    const intent = formData.get("intent") === "submit" ? "submit" : "draft";
-    if (!jobId) return { ok: false, error: "Vacancy not found." };
-    if (intent === "draft" && fields.title.length < 3) return { ok: false, error: "Enter a title of at least 3 characters before saving the draft." };
-    const validationError = intent === "submit" ? vacancyValidationError(fields) : null;
+    const intent = formData.get("intent");
+    if (intent !== "submit" && intent !== "draft") return { ok: false, error: "Select a vacancy action." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy not found." };
+    const validationError = vacancyValidationError(fields, intent === "draft");
     if (validationError) return { ok: false, error: validationError };
     const db = getAdminDb();
     const jobRef = db.collection("jobs").doc(jobId);
-    const snapshot = await jobRef.get();
-    if (!snapshot.exists || snapshot.data()?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
-    if (!["draft", "rejected"].includes(snapshot.data()?.status)) return { ok: false, error: "Only draft or rejected vacancies can be edited." };
-    const nextStatus = intent === "submit" ? "pending_approval" : "draft";
-    const batch = db.batch();
-    batch.update(jobRef, { ...fields, status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
-    batch.create(db.collection("auditLogs").doc(), {
-      actorId: user.uid,
-      action: nextStatus === "pending_approval" ? "vacancy.submitted" : "vacancy.updated",
-      entityType: "job",
-      entityId: jobId,
-      createdAt: FieldValue.serverTimestamp(),
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(jobRef);
+      if (!snapshot.exists || snapshot.data()?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
+      if (!["draft", "rejected"].includes(snapshot.data()?.status)) return { ok: false, error: "Only draft or rejected vacancies can be edited." };
+      if (intent === "submit" && !(deadlineMillis(fields.applicationDeadline) > Date.now())) return { ok: false, error: "Choose an application deadline in the future." };
+      const nextStatus = intent === "submit" ? "pending_approval" : "draft";
+      batch.update(jobRef, { ...fields, status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
+      batch.create(db.collection("auditLogs").doc(), {
+        actorId: user.uid,
+        action: nextStatus === "pending_approval" ? "vacancy.submitted" : "vacancy.updated",
+        entityType: "job",
+        entityId: jobId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { ok: true, id: jobId };
     });
-    await batch.commit();
+    if (!result.ok) return result;
     revalidateVacancies();
     return { ok: true, id: jobId };
   } catch {
@@ -151,21 +164,23 @@ export async function updateVacancyFormAction(_previousState: ActionResult, form
 
 export async function submitVacancyForApprovalAction(formData: FormData): Promise<ActionResult> {
   try {
-    const user = await requireRole(["employer"]);
+    const user = await requireActionRole(["employer"]);
     const jobId = text(formData, "jobId");
-    if (!jobId) return { ok: false, error: "Vacancy not found." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy not found." };
     const db = getAdminDb();
     const jobRef = db.collection("jobs").doc(jobId);
-    const snapshot = await jobRef.get();
-    const job = snapshot.data();
-    if (!snapshot.exists || job?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
-    if (!["draft", "rejected"].includes(job?.status)) return { ok: false, error: "Only draft or rejected vacancies can be submitted." };
-    const validationError = vacancyValidationError(storedVacancyFields(job));
-    if (validationError) return { ok: false, error: validationError };
-    const batch = db.batch();
-    batch.update(jobRef, { status: "pending_approval", updatedAt: FieldValue.serverTimestamp() });
-    batch.create(db.collection("auditLogs").doc(), { actorId: user.uid, action: "vacancy.submitted", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
-    await batch.commit();
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(jobRef);
+      const job = snapshot.data();
+      if (!snapshot.exists || job?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
+      if (!["draft", "rejected"].includes(job?.status)) return { ok: false, error: "Only draft or rejected vacancies can be submitted." };
+      const validationError = vacancyValidationError(storedVacancyFields(job));
+      if (validationError) return { ok: false, error: validationError };
+      batch.update(jobRef, { status: "pending_approval", updatedAt: FieldValue.serverTimestamp() });
+      batch.create(db.collection("auditLogs").doc(), { actorId: user.uid, action: "vacancy.submitted", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
+      return { ok: true, id: jobId };
+    });
+    if (!result.ok) return result;
     revalidateVacancies();
     return { ok: true, id: jobId };
   } catch {
@@ -175,19 +190,21 @@ export async function submitVacancyForApprovalAction(formData: FormData): Promis
 
 export async function closeVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const user = await requireRole(["employer"]);
+    const user = await requireActionRole(["employer"]);
     const jobId = text(formData, "jobId");
-    if (!jobId) return { ok: false, error: "Vacancy not found." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy not found." };
     const db = getAdminDb();
     const jobRef = db.collection("jobs").doc(jobId);
-    const snapshot = await jobRef.get();
-    const job = snapshot.data();
-    if (!snapshot.exists || job?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
-    if (job?.status !== "published") return { ok: false, error: "Only a published vacancy can be closed." };
-    const batch = db.batch();
-    batch.update(jobRef, { status: "closed", closedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-    batch.create(db.collection("auditLogs").doc(), { actorId: user.uid, action: "vacancy.closed", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
-    await batch.commit();
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(jobRef);
+      const job = snapshot.data();
+      if (!snapshot.exists || job?.employerId !== user.uid) return { ok: false, error: "Vacancy not found." };
+      if (job?.status !== "published") return { ok: false, error: "Only a published vacancy can be closed." };
+      batch.update(jobRef, { status: "closed", closedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.create(db.collection("auditLogs").doc(), { actorId: user.uid, action: "vacancy.closed", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
+      return { ok: true, id: jobId };
+    });
+    if (!result.ok) return result;
     revalidateVacancies();
     return { ok: true, id: jobId };
   } catch {

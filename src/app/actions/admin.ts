@@ -2,7 +2,10 @@
 
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
-import { requireRole } from "@/lib/auth/server";
+import { validPassword } from "@/lib/auth/policy";
+import { validId } from "@/lib/http/input";
+import { deadlineMillis } from "@/lib/vacancies/deadline";
+import { requireActionRole } from "@/lib/auth/server";
 import { canAdminArchiveVacancy, canAdminCloseVacancy } from "@/lib/vacancies/admin-status";
 import type { ActionResult } from "@/app/actions/applications";
 import { revalidatePath } from "next/cache";
@@ -15,7 +18,7 @@ function errorCode(error: unknown): string | undefined {
 }
 
 async function requireAdminManager() {
-  const admin = await requireRole(["admin"]);
+  const admin = await requireActionRole(["admin"]);
   const snapshot = await getAdminDb().collection("users").doc(admin.uid).get();
   const profile = snapshot.data();
   if (!snapshot.exists || profile?.role !== "admin" || profile.accountActive !== true || profile.canManageAdmins !== true) {
@@ -39,7 +42,7 @@ export async function createAdministratorAction(formData: FormData): Promise<Act
     if (fullName.length < 2 || fullName.length > 80) return { ok: false, error: "Enter an administrator name between 2 and 80 characters." };
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { ok: false, error: "Enter a valid email address." };
     if (department.length < 2 || department.length > 100) return { ok: false, error: "Enter a department between 2 and 100 characters." };
-    if (temporaryPassword.length < 12 || temporaryPassword.length > 128 || !/[a-z]/.test(temporaryPassword) || !/[A-Z]/.test(temporaryPassword) || !/[0-9]/.test(temporaryPassword) || !/[^A-Za-z0-9]/.test(temporaryPassword)) {
+    if (!validPassword(temporaryPassword)) {
       return { ok: false, error: "The temporary password must be 12–128 characters and include uppercase, lowercase, a number, and a symbol." };
     }
     if (temporaryPassword !== confirmPassword) return { ok: false, error: "The temporary password confirmation does not match." };
@@ -84,6 +87,7 @@ export async function createAdministratorAction(formData: FormData): Promise<Act
       accountActive: true,
       canManageAdmins: false,
       mustChangePassword: true,
+      onboardingExpiresAt: Date.now() + 24 * 60 * 60 * 1000,
       createdByAdmin: admin.uid,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -93,7 +97,6 @@ export async function createAdministratorAction(formData: FormData): Promise<Act
       action: "admin.created",
       entityType: "user",
       entityId: createdUser.uid,
-      metadata: { email },
       createdAt: FieldValue.serverTimestamp(),
     });
     await batch.commit();
@@ -112,18 +115,26 @@ export async function createAdministratorAction(formData: FormData): Promise<Act
 
 export async function approveEmployerAction(formData: FormData): Promise<ActionResult> {
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const employerId = String(formData.get("employerId") ?? "");
-    if (!employerId) return { ok: false, error: "Employer ID is required." };
+    if (!validId(employerId)) return { ok: false, error: "Employer request not found." };
     const db = getAdminDb();
     const ref = db.collection("users").doc(employerId);
-    const snapshot = await ref.get();
-    if (!snapshot.exists || snapshot.data()?.requestedRole !== "employer") return { ok: false, error: "Employer request not found." };
-    await getAdminAuth().setCustomUserClaims(employerId, { role: "employer" });
-    const batch = db.batch();
-    batch.update(ref, { role: "employer", approved: true, approvedBy: admin.uid, approvedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-    batch.create(db.collection("auditLogs").doc(), { actorId: admin.uid, action: "employer.approved", entityType: "user", entityId: employerId, createdAt: FieldValue.serverTimestamp() });
-    await batch.commit();
+    const account = (await ref.get()).data();
+    if (account?.requestedRole !== "employer" || account.role !== "employer" || account.accountActive !== true) {
+      return { ok: false, error: "Employer request not found." };
+    }
+    const auth = getAdminAuth();
+    const identity = await auth.getUser(employerId);
+    if (!identity.emailVerified || identity.disabled) return { ok: false, error: "The employer must verify their email and have an active account." };
+    if (identity.customClaims?.role !== "employer") await auth.setCustomUserClaims(employerId, { ...identity.customClaims, role: "employer" });
+    await db.runTransaction(async (tx) => {
+      const current = (await tx.get(ref)).data();
+      if (current?.requestedRole !== "employer" || current.role !== "employer" || current.accountActive !== true) throw new AdminActionError("Employer request not found.");
+      if (current.approved === true) return;
+      tx.update(ref, { approved: true, approvedBy: admin.uid, approvedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      tx.create(db.collection("auditLogs").doc(), { actorId: admin.uid, action: "employer.approved", entityType: "user", entityId: employerId, createdAt: FieldValue.serverTimestamp() });
+    });
     revalidatePath("/admin", "layout");
     return { ok: true, id: employerId };
   } catch {
@@ -133,16 +144,20 @@ export async function approveEmployerAction(formData: FormData): Promise<ActionR
 
 export async function approveVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const jobId = String(formData.get("jobId") ?? "");
+    if (!validId(jobId)) return { ok: false, error: "Vacancy not found." };
     const db = getAdminDb();
     const ref = db.collection("jobs").doc(jobId);
-    const snapshot = await ref.get();
-    if (!snapshot.exists || snapshot.data()?.status !== "pending_approval") return { ok: false, error: "Pending vacancy not found." };
-    const batch = db.batch();
-    batch.update(ref, { status: "published", publishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-    batch.create(db.collection("auditLogs").doc(), { actorId: admin.uid, action: "vacancy.published", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
-    await batch.commit();
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(ref);
+      if (!snapshot.exists || snapshot.data()?.status !== "pending_approval") return { ok: false, error: "Pending vacancy not found." };
+      if (!(deadlineMillis(snapshot.data()?.applicationDeadline) > Date.now())) return { ok: false, error: "The deadline has passed. Reject the vacancy with a request to correct it." };
+      batch.update(ref, { status: "published", publishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.create(db.collection("auditLogs").doc(), { actorId: admin.uid, action: "vacancy.published", entityType: "job", entityId: jobId, createdAt: FieldValue.serverTimestamp() });
+      return { ok: true, id: jobId };
+    });
+    if (!result.ok) return result;
     revalidatePath("/admin", "layout");
     revalidatePath("/employer", "layout");
     revalidatePath("/student", "layout");
@@ -156,28 +171,33 @@ export async function approveVacancyAction(formData: FormData): Promise<ActionRe
 
 export async function rejectVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const jobId = String(formData.get("jobId") ?? "").trim();
-    if (!jobId) return { ok: false, error: "Vacancy ID is required." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy ID is required." };
+    const reason = formData.get("reason");
+    if (typeof reason !== "string" || !reason.trim() || reason.length > 1000) return { ok: false, error: "Enter a rejection reason up to 1,000 characters." };
     const db = getAdminDb();
     const ref = db.collection("jobs").doc(jobId);
-    const snapshot = await ref.get();
-    if (!snapshot.exists || snapshot.data()?.status !== "pending_approval") return { ok: false, error: "Pending vacancy not found." };
-    const batch = db.batch();
-    batch.update(ref, {
-      status: "rejected",
-      rejectedBy: admin.uid,
-      rejectedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(ref);
+      if (!snapshot.exists || snapshot.data()?.status !== "pending_approval") return { ok: false, error: "Pending vacancy not found." };
+      batch.update(ref, {
+        status: "rejected",
+        rejectionReason: reason.trim(),
+        rejectedBy: admin.uid,
+        rejectedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      batch.create(db.collection("auditLogs").doc(), {
+        actorId: admin.uid,
+        action: "vacancy.rejected",
+        entityType: "job",
+        entityId: jobId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { ok: true, id: jobId };
     });
-    batch.create(db.collection("auditLogs").doc(), {
-      actorId: admin.uid,
-      action: "vacancy.rejected",
-      entityType: "job",
-      entityId: jobId,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await batch.commit();
+    if (!result.ok) return result;
     revalidatePath("/admin", "layout");
     revalidatePath("/employer", "layout");
     return { ok: true, id: jobId };
@@ -198,32 +218,34 @@ function revalidateVacancyViews(jobId: string) {
 
 export async function closeVacancyAsAdminAction(formData: FormData): Promise<ActionResult> {
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const jobId = String(formData.get("jobId") ?? "").trim();
-    if (!jobId) return { ok: false, error: "Vacancy ID is required." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy ID is required." };
 
     const db = getAdminDb();
     const ref = db.collection("jobs").doc(jobId);
-    const snapshot = await ref.get();
-    if (!snapshot.exists) return { ok: false, error: "Vacancy not found." };
-    if (!canAdminCloseVacancy(snapshot.data()?.status)) return { ok: false, error: "Only a published vacancy can be closed." };
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(ref);
+      if (!snapshot.exists) return { ok: false, error: "Vacancy not found." };
+      if (!canAdminCloseVacancy(snapshot.data()?.status)) return { ok: false, error: "Only a published vacancy can be closed." };
 
-    const batch = db.batch();
-    batch.update(ref, {
-      status: "closed",
-      closedBy: admin.uid,
-      closedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      batch.update(ref, {
+        status: "closed",
+        closedBy: admin.uid,
+        closedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      batch.create(db.collection("auditLogs").doc(), {
+        actorId: admin.uid,
+        action: "vacancy.closed",
+        entityType: "job",
+        entityId: jobId,
+        metadata: { previousStatus: "published", source: "administrator" },
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { ok: true, id: jobId };
     });
-    batch.create(db.collection("auditLogs").doc(), {
-      actorId: admin.uid,
-      action: "vacancy.closed",
-      entityType: "job",
-      entityId: jobId,
-      metadata: { previousStatus: "published", source: "administrator" },
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await batch.commit();
+    if (!result.ok) return result;
     revalidateVacancyViews(jobId);
     return { ok: true, id: jobId };
   } catch {
@@ -233,37 +255,39 @@ export async function closeVacancyAsAdminAction(formData: FormData): Promise<Act
 
 export async function archiveVacancyAction(formData: FormData): Promise<ActionResult> {
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const jobId = String(formData.get("jobId") ?? "").trim();
-    if (!jobId) return { ok: false, error: "Vacancy ID is required." };
+    if (!validId(jobId)) return { ok: false, error: "Vacancy ID is required." };
 
     const db = getAdminDb();
     const ref = db.collection("jobs").doc(jobId);
-    const snapshot = await ref.get();
-    if (!snapshot.exists) return { ok: false, error: "Vacancy not found." };
-    const previousStatus = String(snapshot.data()?.status ?? "draft");
-    if (!canAdminArchiveVacancy(previousStatus)) {
-      return previousStatus === "pending_approval"
-        ? { ok: false, error: "Approve or reject the pending vacancy before archiving it." }
-        : { ok: false, error: "This vacancy has already been archived." };
-    }
+    const result = await db.runTransaction(async (batch): Promise<ActionResult> => {
+      const snapshot = await batch.get(ref);
+      if (!snapshot.exists) return { ok: false, error: "Vacancy not found." };
+      const previousStatus = String(snapshot.data()?.status ?? "draft");
+      if (!canAdminArchiveVacancy(previousStatus)) {
+        return previousStatus === "pending_approval"
+          ? { ok: false, error: "Approve or reject the pending vacancy before archiving it." }
+          : { ok: false, error: "This vacancy has already been archived." };
+      }
 
-    const batch = db.batch();
-    batch.update(ref, {
-      status: "archived",
-      archivedBy: admin.uid,
-      archivedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      batch.update(ref, {
+        status: "archived",
+        archivedBy: admin.uid,
+        archivedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      batch.create(db.collection("auditLogs").doc(), {
+        actorId: admin.uid,
+        action: "vacancy.archived",
+        entityType: "job",
+        entityId: jobId,
+        metadata: { previousStatus },
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { ok: true, id: jobId };
     });
-    batch.create(db.collection("auditLogs").doc(), {
-      actorId: admin.uid,
-      action: "vacancy.archived",
-      entityType: "job",
-      entityId: jobId,
-      metadata: { previousStatus },
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await batch.commit();
+    if (!result.ok) return result;
     revalidateVacancyViews(jobId);
     return { ok: true, id: jobId };
   } catch {
@@ -272,34 +296,38 @@ export async function archiveVacancyAction(formData: FormData): Promise<ActionRe
 }
 
 export async function setUserActiveAction(formData: FormData): Promise<ActionResult> {
-  let previousStatus: boolean | undefined;
   try {
-    const admin = await requireRole(["admin"]);
+    const admin = await requireActionRole(["admin"]);
     const userId = String(formData.get("userId") ?? "");
-    const active = String(formData.get("active")) === "true";
-    if (!userId || userId === admin.uid) return { ok: false, error: "You cannot change your own account status." };
+    const desired = formData.get("active");
+    if (desired !== "true" && desired !== "false") return { ok: false, error: "Invalid account status." };
+    const active = desired === "true";
+    if (!validId(userId) || userId === admin.uid) return { ok: false, error: "You cannot change your own account status." };
     const db = getAdminDb();
     const ref = db.collection("users").doc(userId);
     const targetSnapshot = await ref.get();
     if (!targetSnapshot.exists) return { ok: false, error: "User not found." };
     const target = targetSnapshot.data()!;
-    previousStatus = target.accountActive !== false;
-    if (previousStatus === active) return { ok: true, id: userId };
 
     if (target.role === "admin") {
       await requireAdminManager();
     }
 
     const auditRef = db.collection("auditLogs").doc();
-    await db.runTransaction(async (transaction) => {
+    const sync = await db.runTransaction(async (transaction) => {
       const freshTarget = await transaction.get(ref);
       if (!freshTarget.exists) throw new AdminActionError("User not found.");
+      if (freshTarget.get("role") === "admin" && admin.profile.canManageAdmins !== true) throw new AdminActionError("Only a primary administrator can manage this account.");
+      const pending = freshTarget.get("accountStatusRequested");
+      if (pending === active) return true;
+      if (pending !== undefined) throw new AdminActionError("Finish the pending account change before making another.");
+      if (freshTarget.get("accountActive") === active) return false;
       if (freshTarget.data()?.role === "admin" && !active) {
         const admins = await transaction.get(db.collection("users").where("role", "==", "admin"));
         const activeAdmins = admins.docs.filter((document) => document.data().accountActive !== false);
         if (activeAdmins.length <= 1) throw new AdminActionError("The final active administrator cannot be deactivated.");
       }
-      transaction.update(ref, { accountActive: active, updatedAt: FieldValue.serverTimestamp() });
+      transaction.update(ref, { accountActive: false, accountStatusRequested: active, updatedAt: FieldValue.serverTimestamp() });
       transaction.create(auditRef, {
         actorId: admin.uid,
         action: active ? "user.activated" : "user.deactivated",
@@ -307,22 +335,23 @@ export async function setUserActiveAction(formData: FormData): Promise<ActionRes
         entityId: userId,
         createdAt: FieldValue.serverTimestamp(),
       });
+      return true;
     });
+    if (!sync) return { ok: true, id: userId };
 
-    try {
-      await getAdminAuth().updateUser(userId, { disabled: !active });
-      if (!active) await getAdminAuth().revokeRefreshTokens(userId);
-    } catch (error) {
-      const rollback = db.batch();
-      rollback.update(ref, { accountActive: previousStatus, updatedAt: FieldValue.serverTimestamp() });
-      rollback.delete(auditRef);
-      await rollback.commit().catch(() => undefined);
-      throw error;
-    }
+    await getAdminAuth().updateUser(userId, { disabled: !active });
+    if (!active) await getAdminAuth().revokeRefreshTokens(userId);
+    await db.runTransaction(async (tx) => {
+      const current = await tx.get(ref);
+      if (current.get("accountStatusRequested") === active) {
+        tx.update(ref, { accountActive: active, accountStatusRequested: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      }
+    });
     revalidatePath("/admin", "layout");
     return { ok: true, id: userId };
   } catch (error) {
     if (error instanceof AdminActionError) return { ok: false, error: error.message };
-    return { ok: false, error: "The account status could not be updated." };
+    console.error(JSON.stringify({ event: "account.synchronization_incomplete", requestId: crypto.randomUUID() }));
+    return { ok: false, error: "The account change could not be completed. Refresh and retry the pending change." };
   }
 }

@@ -50,9 +50,9 @@ export function AdminApplicationsExplorer({ applications }: { applications: Appl
 
   return (
     <>
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_240px_220px]">
+      <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[1fr_240px_220px]">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search applications"
             className="pl-9"
@@ -77,21 +77,21 @@ export function AdminApplicationsExplorer({ applications }: { applications: Appl
         </Select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <Table>
           <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Vacancy</TableHead><TableHead>Department</TableHead><TableHead>Status</TableHead><TableHead>Submitted</TableHead></TableRow></TableHeader>
           <TableBody>
             {filteredApplications.map((item) => (
               <TableRow key={item.id}>
-                <TableCell><div className="flex items-center gap-3"><Avatar className="size-8"><AvatarFallback className="bg-[#eef1f7] text-[10px] font-bold text-[#24345c]">{item.studentName.split(" ").map((part) => part[0]).join("")}</AvatarFallback></Avatar><div><p className="text-sm font-semibold text-[#18233f]">{item.studentName}</p><p className="text-xs text-slate-400">{item.studentNumber}</p></div></div></TableCell>
+                <TableCell><div className="flex items-center gap-3"><Avatar className="size-8"><AvatarFallback className="bg-muted text-[10px] font-bold text-foreground">{item.studentName.split(" ").map((part) => part[0]).join("")}</AvatarFallback></Avatar><div><p className="text-sm font-semibold text-foreground">{item.studentName}</p><p className="text-xs text-muted-foreground">{item.studentNumber}</p></div></div></TableCell>
                 <TableCell className="max-w-56 truncate font-medium">{item.jobTitle}</TableCell>
-                <TableCell className="text-slate-500">{item.department}</TableCell>
+                <TableCell className="text-muted-foreground">{item.department}</TableCell>
                 <TableCell><StatusBadge status={item.currentStatus} /></TableCell>
-                <TableCell className="text-slate-500">{item.submittedAt}</TableCell>
+                <TableCell className="text-muted-foreground">{item.submittedAt}</TableCell>
               </TableRow>
             ))}
             {filteredApplications.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="h-28 text-center text-slate-500">No applications match the selected filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-28 text-center text-muted-foreground">No applications match the selected filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

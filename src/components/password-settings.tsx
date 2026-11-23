@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { signOut } from "firebase/auth";
+import { EmailAuthProvider, getMultiFactorResolver, reauthenticateWithCredential, signOut, TotpMultiFactorGenerator, type MultiFactorError } from "firebase/auth";
 import { KeyRound, LoaderCircle, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
-export function PasswordSettings({ required = false }: { required?: boolean }) {
+export function PasswordSettings({ required = false, admin = false }: { required?: boolean; admin?: boolean }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
@@ -20,14 +20,34 @@ export function PasswordSettings({ required = false }: { required?: boolean }) {
     event.preventDefault();
     setBusy(true);
     try {
-      const result = await changePasswordAction(new FormData(event.currentTarget));
+      const data = new FormData(event.currentTarget);
+      const auth = getFirebaseAuth();
+      await auth.authStateReady();
+      const user = auth.currentUser;
+      if (!user?.email) { toast.error("Sign in again before changing your password."); return; }
+      const current = String(data.get("currentPassword") ?? "");
+      if (current === data.get("newPassword")) { toast.error("Choose a password different from your current password."); return; }
+      let credential;
+      try {
+        credential = await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, current));
+      } catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === "auth/multi-factor-auth-required")) throw error;
+        const resolver = getMultiFactorResolver(auth, error as MultiFactorError);
+        const factor = resolver.hints.find((hint) => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+        const code = data.get("otp");
+        if (!factor || typeof code !== "string") throw error;
+        credential = await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(factor.uid, code));
+      }
+      data.delete("currentPassword");
+      data.delete("otp");
+      data.set("reauthToken", await credential.user.getIdToken());
+      const result = await changePasswordAction(data);
       if (!result.ok) {
         toast.error(result.error ?? "Your password could not be changed.");
         return;
       }
 
       formRef.current?.reset();
-      await fetch("/api/session", { method: "DELETE" });
       await signOut(getFirebaseAuth()).catch(() => undefined);
       toast.success("Password changed successfully. Sign in again with your new password.");
       router.replace("/login");
@@ -40,12 +60,12 @@ export function PasswordSettings({ required = false }: { required?: boolean }) {
   }
 
   return (
-    <form ref={formRef} onSubmit={changePassword} className={`rounded-2xl border bg-white p-6 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-8 ${required ? "border-amber-300 ring-4 ring-amber-100" : "border-slate-200"}`}>
+    <form ref={formRef} onSubmit={changePassword} className={`rounded-2xl border bg-card p-6 shadow-[0_8px_30px_rgba(35,52,92,0.04)] sm:p-8 ${required ? "border-amber-300 ring-4 ring-amber-100" : "border-border"}`}>
       <div className="flex items-start gap-3">
-        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${required ? "bg-amber-100 text-amber-800" : "bg-[#eef1f7] text-[#24345c]"}`}><KeyRound className="size-5" /></span>
+        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${required ? "bg-amber-100 text-amber-800" : "bg-muted text-foreground"}`}><KeyRound className="size-5" /></span>
         <div>
-          <h2 className="font-bold text-[#18233f]">{required ? "Replace your temporary password" : "Change password"}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">{required ? "You must choose a private password before using administrator actions." : "Confirm your current password before setting a new one."}</p>
+          <h2 className="font-bold text-foreground">{required ? "Replace your temporary password" : "Change password"}</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{required ? "You must choose a private password before using administrator actions." : "Confirm your current password before setting a new one."}</p>
         </div>
       </div>
 
@@ -54,6 +74,7 @@ export function PasswordSettings({ required = false }: { required?: boolean }) {
           <Label htmlFor="current-password">Current password</Label>
           <Input id="current-password" name="currentPassword" type="password" autoComplete="current-password" required className="h-10" />
         </div>
+        {admin && !required && <div className="grid gap-2 sm:col-span-2"><Label htmlFor="password-otp">Authenticator code</Label><Input id="password-otp" name="otp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></div>}
         <div className="grid gap-2">
           <Label htmlFor="new-password">New password</Label>
           <Input id="new-password" name="newPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required className="h-10" />
@@ -62,12 +83,12 @@ export function PasswordSettings({ required = false }: { required?: boolean }) {
           <Label htmlFor="confirm-new-password">Confirm new password</Label>
           <Input id="confirm-new-password" name="confirmPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required className="h-10" />
         </div>
-        <p className="text-xs leading-5 text-slate-500 sm:col-span-2">Use 12 or more characters with uppercase, lowercase, a number, and a symbol.</p>
+        <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">Use 12 or more characters with uppercase, lowercase, a number, and a symbol.</p>
       </div>
 
       <div className="mt-8 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <p className="flex items-center gap-2 text-xs text-slate-400"><LogOut className="size-4" /> You will be signed out after the password changes.</p>
-        <Button type="submit" disabled={busy} className="h-10 bg-[#24345c] px-4 text-white hover:bg-[#18233f]">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground"><LogOut className="size-4" /> You will be signed out after the password changes.</p>
+        <Button type="submit" disabled={busy} className="h-10 bg-primary px-4 text-white hover:bg-sidebar">
           {busy ? <LoaderCircle className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
           {busy ? "Changing…" : "Change password"}
         </Button>

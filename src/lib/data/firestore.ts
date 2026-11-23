@@ -1,9 +1,11 @@
 import "server-only";
 
 import { cache } from "react";
-import type { DocumentData } from "firebase-admin/firestore";
+import { Timestamp, type DocumentData } from "firebase-admin/firestore";
+import { validId } from "@/lib/http/input";
+import { isVacancyOpen } from "@/lib/vacancies/deadline";
 import { getAdminDb } from "@/lib/firebase/admin";
-import type { Application, AuditLog, Job, PortalNotification, StatusHistoryItem, StoredDocument, UserProfile, UserRole, VacancyEditorData } from "@/types";
+import type { Application, AuditLog, Job, PublicJob, PortalNotification, StatusHistoryItem, StoredDocument, UserProfile, UserRole, VacancyEditorData } from "@/types";
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
@@ -50,17 +52,20 @@ function profileFromData(id: string, data: DocumentData): UserProfile {
     approved: Boolean(data.approved),
     canManageAdmins: data.canManageAdmins === true,
     mustChangePassword: data.mustChangePassword === true,
-    accountActive: data.accountActive !== false,
+    accountActive: data.accountActive === true,
+    accountStatusRequested: typeof data.accountStatusRequested === "boolean" ? data.accountStatusRequested : undefined,
     createdAt: formatDate(data.createdAt),
     updatedAt: formatDate(data.updatedAt),
   };
 }
 
-type SnapshotLike = { id: string; data(): DocumentData | undefined };
+type SnapshotLike = { id: string; updateTime?: Timestamp; data(): DocumentData | undefined };
 
 const getUserSnapshot = cache((uid: string) => getAdminDb().collection("users").doc(uid).get());
 const getAllUsersSnapshot = cache(() => getAdminDb().collection("users").orderBy("createdAt", "desc").get());
-const getPublishedJobsSnapshot = cache(() => getAdminDb().collection("jobs").where("status", "==", "published").get());
+const getPublishedJobsSnapshot = cache((limit: number) => getAdminDb().collection("jobs")
+  .where("status", "==", "published").where("applicationDeadline", ">", Timestamp.now())
+  .orderBy("applicationDeadline").limit(limit).get());
 const getJobSnapshot = cache((id: string) => getAdminDb().collection("jobs").doc(id).get());
 const getEmployerJobsSnapshot = cache((employerId: string) => getAdminDb().collection("jobs").where("employerId", "==", employerId).get());
 const getAllJobsSnapshot = cache(() => getAdminDb().collection("jobs").orderBy("createdAt", "desc").get());
@@ -93,6 +98,7 @@ function jobFromSnapshot(snapshot: SnapshotLike): Job {
     status: data.status ?? "draft",
     applicants: Number(data.applicants ?? 0),
     featured: Boolean(data.featured),
+    rejectionReason: typeof data.rejectionReason === "string" ? data.rejectionReason : undefined,
   };
 }
 
@@ -100,6 +106,7 @@ function applicationFromSnapshot(snapshot: SnapshotLike): Application {
   const data = snapshot.data() ?? {};
   return {
     id: snapshot.id,
+    version: `${snapshot.updateTime?.seconds}:${snapshot.updateTime?.nanoseconds}`,
     jobId: String(data.jobId ?? ""),
     jobTitle: String(data.jobTitle ?? "Vacancy"),
     department: String(data.department ?? "APU Department"),
@@ -128,15 +135,27 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   return snapshot.docs.map((doc) => profileFromData(doc.id, doc.data()));
 }
 
-export async function getPublishedJobs(limit = 50): Promise<Job[]> {
-  const snapshot = await getPublishedJobsSnapshot();
-  return snapshot.docs
-    .sort((a, b) => timestampMs(a.data().applicationDeadline) - timestampMs(b.data().applicationDeadline))
-    .slice(0, limit)
-    .map(jobFromSnapshot);
+function publicJob(snapshot: SnapshotLike): PublicJob {
+  const { id, title, department, category, location, employmentType, workMode, compensation, hoursPerWeek,
+    openings, deadline, postedAt, description, responsibilities, requirements, skills, status, featured } = jobFromSnapshot(snapshot);
+  return { id, title, department, category, location, employmentType, workMode, compensation, hoursPerWeek,
+    openings, deadline, postedAt, description, responsibilities, requirements, skills, status, featured };
+}
+
+export async function getPublishedJobs(limit = 50) {
+  const snapshot = await getPublishedJobsSnapshot(limit);
+  return snapshot.docs.filter((doc) => isVacancyOpen(doc.data().status, doc.data().applicationDeadline)).map(publicJob);
+}
+
+export async function getPublicJobById(id: string) {
+  if (!validId(id)) return null;
+  const snapshot = await getJobSnapshot(id);
+  const data = snapshot.data();
+  return data && isVacancyOpen(data.status, data.applicationDeadline) ? publicJob(snapshot) : null;
 }
 
 export async function getJobById(id: string): Promise<Job | null> {
+  if (!validId(id)) return null;
   const snapshot = await getJobSnapshot(id);
   return snapshot.exists ? jobFromSnapshot(snapshot) : null;
 }
@@ -198,6 +217,7 @@ export async function getAllApplications(): Promise<Application[]> {
 }
 
 export async function getApplicationById(id: string): Promise<Application | null> {
+  if (!validId(id, 257)) return null;
   const snapshot = await getApplicationSnapshot(id);
   return snapshot.exists ? applicationFromSnapshot(snapshot) : null;
 }
@@ -228,19 +248,29 @@ export async function getApplicationHistory(applicationId: string): Promise<Stat
   });
 }
 
-export async function getStudentDocuments(studentId: string): Promise<StoredDocument[]> {
+export async function getEmployerReviewNotes(applicationId: string, employerId: string) {
+  const parent = await getApplicationSnapshot(applicationId);
+  if (parent.get("employerId") !== employerId) return [];
+  const history = await parent.ref.collection("statusHistory").orderBy("changedAt", "desc").limit(25).get();
+  return history.docs.flatMap((entry) => {
+    const note = entry.get("internalNote");
+    return typeof note === "string" && note.trim() ? [{ id: entry.id, note, changedAt: formatDate(entry.get("changedAt"), true) }] : [];
+  });
+}
+
+export async function getStudentDocuments(studentId: string, includePending = false): Promise<StoredDocument[]> {
   const snapshot = await getAdminDb().collection("users").doc(studentId)
     .collection("documents").orderBy("createdAt", "desc").get();
-  return snapshot.docs.map((doc) => {
+  return snapshot.docs.filter((doc) => includePending || !doc.data().pendingDeletion).map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
       ownerId: String(data.ownerId ?? studentId),
       applicationId: String(data.applicationId ?? "profile"),
+      pendingDeletion: data.pendingDeletion === true,
       originalName: String(data.originalName ?? "Document"),
       contentType: String(data.contentType ?? data.mimeType ?? "application/octet-stream"),
       size: Number(data.size ?? data.fileSize ?? 0),
-      storagePath: String(data.storagePath ?? ""),
       createdAt: formatDate(data.createdAt ?? data.uploadedAt),
     };
   });
@@ -260,7 +290,6 @@ export async function getAuditLogs(): Promise<AuditLog[]> {
       action: String(data.action ?? "system.activity"),
       entityType: String(data.entityType ?? "system"),
       entityId: String(data.entityId ?? ""),
-      metadata: data.metadata,
       createdAt: formatDate(data.createdAt, true),
     };
   });

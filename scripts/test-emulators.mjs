@@ -288,14 +288,34 @@ try {
   assert.doesNotMatch(listing, /Confidential expired vacancy|Confidential closed vacancy/);
   await missingPage(await api("/jobs/expired"));
   await missingPage(await api("/jobs/closed/apply", { headers: { Cookie: session.student } }));
+  // page.goto resolves on load, which can precede hydration; React drops clicks made before then. Repeat until the choice registers.
+  const chooseDocument = async (page, file) => {
+    const chosen = page.getByRole("radio", { checked: true });
+    for (let attempt = 0; attempt < 20 && !(await chosen.count()); attempt++) {
+      await page.getByText(`${file}.pdf`, { exact: true }).click();
+      await chosen.waitFor({ timeout: 500 }).catch(() => {});
+    }
+    assert.equal(await chosen.count(), 1);
+  };
   const apply = async (ctx, vacancy = "open", file = "selected") => {
     const page = await ctx.newPage();
     await page.goto(origin + `/jobs/${vacancy}/apply`);
     await page.getByLabel("Cover letter").fill("This is a synthetic cover letter for testing concurrent submissions. It contains no personal data.");
-    await page.getByText(`${file}.pdf`, { exact: true }).click();
+    await chooseDocument(page, file);
     await page.getByRole("checkbox").check();
     return page;
   };
+  const early = await student2.newPage();
+  let releaseScripts;
+  const scriptsHeld = new Promise((resolve) => { releaseScripts = resolve; });
+  await early.route(/\/_next\/static\/.+\.js(?:\?|$)/, async (route) => { await scriptsHeld; await route.continue(); });
+  await early.goto(origin + "/jobs/open/apply", { waitUntil: "domcontentloaded" });
+  await early.getByText("selected.pdf", { exact: true }).click(); // Lands before any client script has run.
+  releaseScripts();
+  await chooseDocument(early, "selected");
+  await early.getByRole("button", { name: /Submit application securely/ }).click({ trial: true });
+  await early.close();
+  console.log("A document click made before hydration did not leave the application form stuck.");
   const pages = await Promise.all([apply(student), apply(student2)]);
   await Promise.all(pages.map((page) => page.getByRole("button", { name: /Submit application securely/ }).click()));
   await Promise.all(pages.map((page) => page.getByText(/Application submitted$|You already applied/).first().waitFor()));
